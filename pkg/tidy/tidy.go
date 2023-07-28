@@ -65,10 +65,15 @@ func (s *sortType) setDirs() {
 	s.sortDirs = tidyDirs[s.sortMethod]
 }
 
+// NOTE: the logic for how to apply the sorting rules for each sort type will be
+// in the sort method on the sortable interface. So for example, I will have the
+// struct filetypeSort, which is of type sortType. It implements the sortable
+// interface. It has the sort() method, which defines the rules on which files go
+// in which directories.
 
 type sortable interface {
 	createScaffolding() error
-	sort(string)
+	sort(sortType.sortMethod)
 	
 }
 
