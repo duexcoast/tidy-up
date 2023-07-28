@@ -30,7 +30,6 @@ func ChangeWorkingDir(dirName string) error {
 	log.Info().Str("cwd", cwd).Send()
 
 	return nil
-
 }
 
 func createScaffolding(cfg TidyConfig) error {
@@ -41,7 +40,48 @@ func createScaffolding(cfg TidyConfig) error {
 }
 
 type TidyConfig struct {	
-	SortType string
+	// embedded type sortType provides information on how the directory should
+	// be sorted.
+	sortType
+}
+
+// sortType struct contains configuration on how the directory should be sorted 
+type sortType struct {
+	sortMethod string
+	sortDirs []string
+}
+
+func (s *sortType) setDirs() {
+	// TODO: Need to associate rules with each directory name. This needs to be
+	// done in a way in which different types of rules can be applied to 
+	// different sorting methods
+	tidyDirs := map[string]s.sortDirs{ // is s.sortDirs a valid type here? I 
+									   // simply want to make the type []string,
+		                               // but am aiming for clarity here
+		"filetype": {"Images", "Video", "PDFs", "Audio", "Applications", "Other" },
+		"createdAt": {"Today", "This Week", "This Month", "This Year", "Older"},
+	}
+
+	s.sortDirs = tidyDirs[s.sortMethod]
+}
+
+
+type sortable interface {
+	createScaffolding() error
+	sort(string)
+	
+}
+
+type filetypeSort struct {
+	
+}
+
+func (sortType string) TidyConfig {
+	switch sortType {
+	case "filetype":
+		
+		
+	}
 }
 
 // put this config inside of a function for now, 
