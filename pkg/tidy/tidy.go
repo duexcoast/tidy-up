@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func changeDir(dirName string) error {
+func ChangeWorkingDir(dirName string) error {
 	// TODO: I should do a better job of sanitizing/validating the dirName arg
 	if dirName == "" {
 		// For now, this is the default for MacOS, I'll have to add a better
@@ -31,4 +31,25 @@ func changeDir(dirName string) error {
 
 	return nil
 
+}
+
+func createScaffolding(cfg TidyConfig) error {
+	switch cfg.SortType {
+	case "filetype":
+		err := scaffold()
+	}
+}
+
+type TidyConfig struct {	
+	SortType string
+}
+
+// put this config inside of a function for now, 
+func run() {
+	cfg := struct {
+			SortType string `default:"filetype"` 
+	}
+
+	// create scaffolding
+	createScaffolding(cfg)
 }
