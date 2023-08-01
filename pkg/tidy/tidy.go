@@ -1,7 +1,8 @@
 package tidy
 
 import (
-	"fmt"
+	"errors"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -122,26 +123,33 @@ func invertMap(myMap map[string][]string) map[string]string {
 // filetypeSort. The list of directories are taken from the keys in fs.dirsToExtension
 // It will first check if the directories already exist, if they do not, then it will
 // proceed to create them. Any failure is returned as an error.
-//
-// createScaffolding method will run in whatever the current working directory is.
-func (fs *filetypeSort) createScaffolding() error {
-	directories := make([]string, 0, len(fs.dirsToExtension))
-	for k := range fs.dirsToExtension {
-		directories = append(directories, k)
+func (fts *filetypeSort) createScaffolding() error {
+
+	scaffoldFolderNames := make([]string, 0, len(fts.dirsToExtension))
+	for k := range fts.dirsToExtension {
+		scaffoldFolderNames = append(scaffoldFolderNames, k)
 	}
 
-	for _, v := range directories {
+	for _, v := range scaffoldFolderNames {
+		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
 
+			err := os.Mkdir(v, fs.ModePerm)
+			if err != nil {
+				log.Print(err)
+			}
+		} else {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (fs *filetypeSort) sort() {
-	err := fs.createScaffolding()
-	if err != nil {
-		fmt.Println(err)
-	}
+func (fts *filetypeSort) sort() {
+	// err := fts.createScaffolding()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
 }
 
