@@ -29,12 +29,12 @@ func TestCreateScaffolding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sliceOfDirs := ftSorter.sliceOfDirs()
-	sliceOfDirs = append(sliceOfDirs, ".")
-	sort.Slice(sliceOfDirs, func(i, j int) bool {
-		return sliceOfDirs[i] < sliceOfDirs[j]
+	want := ftSorter.sliceOfDirs()
+	want = append(want, ".")
+	sort.Slice(want, func(i, j int) bool {
+		return want[i] < want[j]
 	})
-	assertSlicesEqual(t, got, sliceOfDirs)
+	assertSlicesEqual(t, got, want)
 
 	err = helperCleanUpDirectories(wd)
 	if err != nil {
@@ -43,6 +43,8 @@ func TestCreateScaffolding(t *testing.T) {
 
 }
 
+// helperSliceOfDirectories function walks the current directory and returns a
+// slice containing the name of every file/directory found.
 func helperSliceOfDirectories(cwd string) ([]string, error) {
 	fsys := os.DirFS(cwd)
 	dirsFound := make([]string, 0)
@@ -59,6 +61,8 @@ func helperSliceOfDirectories(cwd string) ([]string, error) {
 	return dirsFound, nil
 }
 
+// helperCleanUpDirectories function will erase every file or empty directory in
+// the given working directory.
 func helperCleanUpDirectories(cwd string) error {
 	fsys := os.DirFS(cwd)
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
