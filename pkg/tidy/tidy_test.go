@@ -105,7 +105,7 @@ func TestSort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// err = helperCleanUpDirectories(wd)
+	err = helperCleanUpDirectories(wd)
 	if err != nil {
 		t.Fatal(err)
 	}
