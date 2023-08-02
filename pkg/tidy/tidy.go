@@ -2,7 +2,6 @@ package tidy
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"os/user"
@@ -42,11 +41,13 @@ func ChangeWorkingDir(dirName string) error {
 // 	}
 // }
 
-// type TidyConfig struct {
-// 	// embedded type sortType provides information on how the directory should
-// 	// be sorted.
-// 	sortType
-// }
+type TidyConfig struct {
+	// // embedded type sortType provides information on how the directory should
+	// // be sorted.
+	// sortType
+	sortDir string
+}
+
 //
 // // sortType struct contains configuration on how the directory should be sorted
 // type sortType struct {
@@ -120,18 +121,16 @@ func invertMap(myMap map[string][]string) map[string]string {
 	return invertedMap
 }
 
-// createScaffolding method will create the correct directory structure for the
+// createScaffolding method creates the correct directory structure for the
 // filetypeSort. The list of directories are taken from the keys in fs.dirsToExtension
 // It will first check if the directories already exist, if they do not, then it will
 // proceed to create them. Any failure is returned as an error.
 func (fts *filetypeSort) createScaffolding() error {
 
 	scaffoldFolderNames := fts.sliceOfDirs()
-	fmt.Println(scaffoldFolderNames)
 	for _, v := range scaffoldFolderNames {
 		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
 
-			fmt.Printf("making: [%s]\n", v)
 			err := os.Mkdir(v, fs.ModePerm)
 			if err != nil {
 				log.Print(err)
@@ -142,6 +141,9 @@ func (fts *filetypeSort) createScaffolding() error {
 	return nil
 }
 
+// sliceOfDirs method takes the keys in the dirsToExtension map, and creates a
+// slice from them. This method allows any changes in the dirsToExtension map to
+// be reflected every time the sliceOfDirs function is called.
 func (fts *filetypeSort) sliceOfDirs() []string {
 	scaffoldFolderNames := make([]string, 0, len(fts.dirsToExtension))
 	for k := range fts.dirsToExtension {
@@ -150,11 +152,61 @@ func (fts *filetypeSort) sliceOfDirs() []string {
 	return scaffoldFolderNames
 }
 
-func (fts *filetypeSort) sort() {
-	// err := fts.createScaffolding()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+func (fts *filetypeSort) sort(wd string) error {
+	// TODO: use sortDir field in TidyConfig struct to set the directory to be
+	// sorted. For now I will take an argument into sort()
+	err := os.Chdir(wd)
+	if err != nil {
+		log.Print(err)
+	}
+
+	err = fts.createScaffolding()
+	if err != nil {
+		log.Print(err)
+	}
+	scaffoldFolderNames := fts.sliceOfDirs()
+
+	fileSystem := os.DirFS(wd)
+
+	err = fs.WalkDir(fileSystem, ".", func(path string, d fs.DirEntry, err error) error {
+		// check if d is a directory, if it is check to see if it is part of the
+		// scaffolding. If d is part of the scaffolding then return, if not, then
+		// move it to the 'Directories' folder.
+		if d.IsDir() {
+			if contains(scaffoldFolderNames, d.Name()) || d.Name() == "." {
+				return nil
+			}
+			destinationDir := filepath.Join(wd, "Directories")
+			destinationPath := filepath.Join(destinationDir, d.Name())
+			err := os.Rename(path, destinationPath)
+			if err != nil {
+				log.Print(err)
+			}
+			return nil
+
+		}
+		ext := getExtension(d.Name())
+
+		val, ok := fts.extensionToDir[ext]
+		newLocation := filepath.Join(wd, val, d.Name())
+		if !ok {
+			newLocation = filepath.Join(wd, "Other", d.Name())
+			err := os.Rename(path, newLocation)
+			if err != nil {
+				log.Print(err)
+			}
+		}
+		err = os.Rename(path, newLocation)
+		if err != nil {
+			log.Print(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 
 }
 

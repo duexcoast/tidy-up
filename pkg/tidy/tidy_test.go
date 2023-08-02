@@ -1,7 +1,6 @@
 package tidy
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -19,7 +18,11 @@ func TestCreateScaffolding(t *testing.T) {
 		t.Fatal(err)
 	}
 	wd, _ = os.Getwd()
-	fmt.Println(wd)
+
+	err = helperCleanUpDirectories(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("generate correct list of directories.", func(t *testing.T) {
 		err = ftSorter.createScaffolding()
@@ -69,6 +72,45 @@ func TestCreateScaffolding(t *testing.T) {
 
 }
 
+func TestSort(t *testing.T) {
+	wd, _ := os.Getwd()
+	err := helperCleanUpDirectories(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ftSorter := NewFiletypeSort()
+
+	// wd, _ := os.Getwd()
+	// err := os.Chdir(path.Join(wd, "testFS"))
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+
+	fileNames := []string{"story.txt", "intl-players-anthem.mp3", "programming-pearls.pdf", "kobe.iso", "config.lua", "home-video.mp4", "resume2023.docx", "random.xxx"}
+	for _, v := range fileNames {
+		file, err := os.Create(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		file.Close()
+	}
+	_ = os.Mkdir("Inception", fs.ModePerm)
+	fsys := os.DirFS(wd)
+	_ = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		return nil
+	})
+
+	// wd, _ := os.Getwd()
+	err = ftSorter.sort(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// err = helperCleanUpDirectories(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // helperSliceOfDirectories function walks the current directory and returns a
 // slice containing the name of every file/directory found.
 func helperSliceOfDirectories(cwd string) ([]string, error) {
@@ -102,7 +144,7 @@ func helperSortedSliceOfDirs(fts *filetypeSort) []string {
 func helperCleanUpDirectories(cwd string) error {
 	fsys := os.DirFS(cwd)
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-		_ = os.Remove(d.Name())
+		_ = os.RemoveAll(d.Name())
 		return nil
 	})
 	if err != nil {
