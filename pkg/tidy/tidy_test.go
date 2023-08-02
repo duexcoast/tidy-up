@@ -3,25 +3,13 @@ package tidy
 import (
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path"
+	"sort"
 	"testing"
 )
 
 func TestCreateScaffolding(t *testing.T) {
-	// filesystem := fstest.MapFS{
-	// 	"Images/":     {},
-	// 	"Videos/":     {},
-	// 	"Documents":   {},
-	// 	"Audio/":      {},
-	// 	"PDFs/":       {},
-	// 	"Other/":      {},
-	// 	"Compressed/": {},
-	// 	"Code/":       {},
-	// 	// "Directories/": {},
-	// }
-	//
 	ftSorter := NewFiletypeSort()
 
 	wd, _ := os.Getwd()
@@ -37,7 +25,22 @@ func TestCreateScaffolding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := helperSliceOfDirectories(wd)
+	got, err := helperSliceOfDirectories(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sliceOfDirs := ftSorter.sliceOfDirs()
+	sliceOfDirs = append(sliceOfDirs, ".")
+	sort.Slice(sliceOfDirs, func(i, j int) bool {
+		return sliceOfDirs[i] < sliceOfDirs[j]
+	})
+	assertSlicesEqual(t, got, sliceOfDirs)
+
+	err = helperCleanUpDirectories(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func helperSliceOfDirectories(cwd string) ([]string, error) {
@@ -45,8 +48,7 @@ func helperSliceOfDirectories(cwd string) ([]string, error) {
 	dirsFound := make([]string, 0)
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			// CHANGE: make this a test helper func so I can use t.Fatal
-			log.Fatal(err)
+			return err
 		}
 		dirsFound = append(dirsFound, d.Name())
 		return nil
@@ -55,5 +57,28 @@ func helperSliceOfDirectories(cwd string) ([]string, error) {
 		return nil, err
 	}
 	return dirsFound, nil
+}
 
+func helperCleanUpDirectories(cwd string) error {
+	fsys := os.DirFS(cwd)
+	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		_ = os.Remove(d.Name())
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func assertSlicesEqual(t testing.TB, got, want []string) {
+	if len(got) != len(want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("got %v, want %v", got, want)
+		}
+
+	}
 }

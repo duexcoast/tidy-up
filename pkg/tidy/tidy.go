@@ -125,11 +125,7 @@ func invertMap(myMap map[string][]string) map[string]string {
 // proceed to create them. Any failure is returned as an error.
 func (fts *filetypeSort) createScaffolding() error {
 
-	scaffoldFolderNames := make([]string, 0, len(fts.dirsToExtension))
-	for k := range fts.dirsToExtension {
-		scaffoldFolderNames = append(scaffoldFolderNames, k)
-	}
-
+	scaffoldFolderNames := fts.sliceOfDirs()
 	for _, v := range scaffoldFolderNames {
 		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
 
@@ -143,6 +139,14 @@ func (fts *filetypeSort) createScaffolding() error {
 	}
 
 	return nil
+}
+
+func (fts *filetypeSort) sliceOfDirs() []string {
+	scaffoldFolderNames := make([]string, 0, len(fts.dirsToExtension))
+	for k := range fts.dirsToExtension {
+		scaffoldFolderNames = append(scaffoldFolderNames, k)
+	}
+	return scaffoldFolderNames
 }
 
 func (fts *filetypeSort) sort() {
