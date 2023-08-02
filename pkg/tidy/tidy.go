@@ -2,6 +2,7 @@ package tidy
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/user"
@@ -126,15 +127,15 @@ func invertMap(myMap map[string][]string) map[string]string {
 func (fts *filetypeSort) createScaffolding() error {
 
 	scaffoldFolderNames := fts.sliceOfDirs()
+	fmt.Println(scaffoldFolderNames)
 	for _, v := range scaffoldFolderNames {
 		if _, err := os.Stat(v); errors.Is(err, os.ErrNotExist) {
 
+			fmt.Printf("making: [%s]\n", v)
 			err := os.Mkdir(v, fs.ModePerm)
 			if err != nil {
 				log.Print(err)
 			}
-		} else {
-			return err
 		}
 	}
 

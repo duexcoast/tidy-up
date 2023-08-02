@@ -11,6 +11,7 @@ import (
 
 func TestCreateScaffolding(t *testing.T) {
 	ftSorter := NewFiletypeSort()
+	want := helperSortedSliceOfDirs(ftSorter)
 
 	wd, _ := os.Getwd()
 	err := os.Chdir(path.Join(wd, "testFS"))
@@ -20,26 +21,51 @@ func TestCreateScaffolding(t *testing.T) {
 	wd, _ = os.Getwd()
 	fmt.Println(wd)
 
-	err = ftSorter.createScaffolding()
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("generate correct list of directories.", func(t *testing.T) {
+		err = ftSorter.createScaffolding()
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	got, err := helperSliceOfDirectories(wd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := ftSorter.sliceOfDirs()
-	want = append(want, ".")
-	sort.Slice(want, func(i, j int) bool {
-		return want[i] < want[j]
+		got, err := helperSliceOfDirectories(wd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertSlicesEqual(t, got, want)
+
+		err = helperCleanUpDirectories(wd)
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
-	assertSlicesEqual(t, got, want)
 
-	err = helperCleanUpDirectories(wd)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("don't create duplicate directories.", func(t *testing.T) {
+		err := os.Mkdir("Audio", fs.ModePerm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = os.Mkdir("Compressed", fs.ModePerm)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = ftSorter.createScaffolding()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := helperSliceOfDirectories(wd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertSlicesEqual(t, got, want)
+
+		err = helperCleanUpDirectories(wd)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+	})
 
 }
 
@@ -59,6 +85,16 @@ func helperSliceOfDirectories(cwd string) ([]string, error) {
 		return nil, err
 	}
 	return dirsFound, nil
+}
+
+func helperSortedSliceOfDirs(fts *filetypeSort) []string {
+	want := fts.sliceOfDirs()
+	want = append(want, ".")
+	sort.Slice(want, func(i, j int) bool {
+		return want[i] < want[j]
+	})
+	return want
+
 }
 
 // helperCleanUpDirectories function will erase every file or empty directory in
