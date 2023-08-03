@@ -226,7 +226,7 @@ func TestCreateScaffolding(t *testing.T) {
 				}
 			}
 
-			err := Tidy.Sorter.CreateScaffolding(Tidy.Fs)
+			err := Tidy.CreateScaffolding()
 			if err != nil {
 				t.Fatalf("Couldn't create scaffolding, error: %s", err)
 			}
@@ -235,7 +235,7 @@ func TestCreateScaffolding(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Couldn't read the dirs in the test filesystem, error: %s", err)
 			}
-			want := ftSorter.DirsSlice()
+			want := ftSorter.dirsSlice()
 
 			// diff := cmp.Diff(got, want)
 			// if diff != "" {
