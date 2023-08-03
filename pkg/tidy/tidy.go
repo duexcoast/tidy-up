@@ -69,63 +69,152 @@ type TidyConfig struct {
 // 	s.sortDirs = tidyDirs[s.sortMethod]
 // }
 
-// NOTE: the logic for how to apply the sorting rules for each sort type will be
-// in the sort method on the sortable interface. So for example, I will have the
-// struct filetypeSort, which is of type sortType. It implements the sortable
-// interface. It has the sort() method, which defines the rules on which files go
-// in which directories.
-type sortable interface {
-	createScaffolding() error
-	sort()
+// Sorter is an interface which allows different types of sorting. It requires a
+// Sort() method which sorts a given directory.
+type Sorter interface {
+	// createScaffolding() error
+	Sort()
 }
 
-type filetypeSort struct {
-	// dirsToExtension is a map where the keys are the directories in which files
-	// will be sorted, and the values are a slice containing the file extensions
-	// which belong in that directory.
-	dirsToExtension map[string][]string
-	// extensionToDir is an inverse map of dirsToExtension, where the key is a
-	// file extension and the value is the directory to which it should be sorted.
-	extensionToDir map[string]string
+// FiletypeSorter implements the Sorter interface and is used for sorting a directory
+// based on filetype.
+//
+// It contains two maps which are used internally for determining where a file
+// should be sorted based on its extension. These mappings can be updated through
+// the UpdateMap() method.
+// type FiletypeSorter struct {
+// 	// dirsToExtension is a map where the keys are the directories in which files
+// 	// will be sorted, and the values are a slice containing the file extensions
+// 	// which belong in that directory.
+// 	dirsToExtension map[string][]string
+// 	// extensionToDir is an inverse map of dirsToExtension, where the key is a
+// 	// file extension and the value is the directory to which it should be sorted.
+// 	extensionToDir map[string]string
+// }
+//
+// type SortingFolder interface {
+// 	Update(string) error
+// 	Rename(newname string) error
+// }
+
+type FiletypeSorter struct {
+	// Dirs provides a slice of *FiletypeSortingFolders, representing the directories
+	// in which files will be sorted.
+	Dirs []*FiletypeSortingFolder
+
+	// The Lookup map uses file extensions as keys, with *FiletypeSortingFolder as
+	// values, this allows us to determine where a file should be sorted in constant
+	// time.
+	Lookup map[string]*FiletypeSortingFolder
 }
 
-func NewFiletypeSort() *filetypeSort {
-	dirs := map[string][]string{
-		"Images":      {"jpeg", "jpg", "ai", "bmp", "gif", "heif", "heic", "ico", "max", "obj", "png", "ps", "psd", "svg", "tif", "tiff", "3ds", "3dm"},
-		"Videos":      {"avi", "flv", "h264", "m4v", "mkv", "mov", "mp4", "mpg", "mpeg", "mpeg-1", "mpeg-2", "mpeg-4", "", "rm", "swf", "vob", "wmv", "3g2", "3gp"},
-		"Documents":   {"doc", "docx", "odt", "msg", "rtf", "tex", "txt", "wks", "wps", "wpd", "md"},
-		"Code":        {"html", "js", "json", "ts", "tsx", "jsx", "go", "c", "cpp", "java", "awk", "sh", "zsh", "lua", "pl", "obj", "s", "sql", "py", "r", "rb", "rs", "cs", "kt", "php", "pm", "rkt", "rktl", "scm", "scala"},
-		"Audio":       {"aa", "aax", "act", "aiff", "alac", "au", "wav", "flac", "ra", "wma", "ac3", "m4b", "mp3", "aac", "ots"},
-		"PDFs":        {"pdf", "epub"},
-		"Compressed":  {"a", "ar", "cpio", "shar", "lbr", "iso", "mar", "sbx", "tar", "br", "bz2", "f", "?xf", "genozip", "gz", "lz", "lz4", "lzma", "lzo", "rz", "sz", "sfark", "xz", "z", "zst", "7z", "s7z", "ace", "afa", "alz", "apk", "arc", "ark", "arc", "cdx", "arj", "b1", "b6z", "ba", "bh", "cab", "car", "cfs", "cpt", "dar", "dd", "dgc", "dmg", "ear", "gca", "genozip", "ha", "hki", "ice", "kgb", "lzh", "lha", "lzx", "pak", "partimg", "paq6", "paq7", "paq8", "pea", "phar", "pim", "pit", "qda", "rar", "rk", "sda", "sea", "sen", "sfx", "shk", "sit", "sitx", "sqx", "tar.gz", "tgz", "tar.z", "tar.bz2", "tbz2", "tar.lz", "tlz", "tar.xz", "txz", "tar.zst", "uc", "uc0", "uc2", "ucn", "ur2", "ue2", "uca", "uha", "war", "wim", "xar", "xp3", "yz1", "zip", "zipx", "zoo", "zpaq", "zz", "ecc", "ecsbx", "par", "par2", "rev"},
-		"Other":       {},
-		"Directories": {},
+type FiletypeSortingFolder struct {
+	Name       string
+	Extensions []string
+}
+
+func (ftsf *FiletypeSortingFolder) invertForLookupMap() map[string]string
+
+func NewFiletypeSorter() *FiletypeSorter {
+	dirs := []*FiletypeSortingFolder{
+		&FiletypeSortingFolder{
+			Name:       "Audio",
+			Extensions: []string{"aa", "aax", "act", "aiff", "alac", "au", "wav", "flac", "ra", "wma", "ac3", "m4b", "mp3", "aac", "ots"},
+		},
+		&FiletypeSortingFolder{
+			Name:       "Code",
+			Extensions: []string{"html", "js", "json", "ts", "tsx", "jsx", "go", "c", "cpp", "java", "awk", "sh", "zsh", "lua", "pl", "obj", "s", "sql", "py", "r", "rb", "rs", "cs", "kt", "php", "pm", "rkt", "rktl", "scm", "scala"},
+		},
+		&FiletypeSortingFolder{
+			Name:       "Compressed",
+			Extensions: []string{"a", "ar", "cpio", "shar", "lbr", "iso", "mar", "sbx", "tar", "br", "bz2", "f", "?xf", "genozip", "gz", "lz", "lz4", "lzma", "lzo", "rz", "sz", "sfark", "xz", "z", "zst", "7z", "s7z", "ace", "afa", "alz", "apk", "arc", "ark", "arc", "cdx", "arj", "b1", "b6z", "ba", "bh", "cab", "car", "cfs", "cpt", "dar", "dd", "dgc", "dmg", "ear", "gca", "genozip", "ha", "hki", "ice", "kgb", "lzh", "lha", "lzx", "pak", "partimg", "paq6", "paq7", "paq8", "pea", "phar", "pim", "pit", "qda", "rar", "rk", "sda", "sea", "sen", "sfx", "shk", "sit", "sitx", "sqx", "tar.gz", "tgz", "tar.z", "tar.bz2", "tbz2", "tar.lz", "tlz", "tar.xz", "txz", "tar.zst", "uc", "uc0", "uc2", "ucn", "ur2", "ue2", "uca", "uha", "war", "wim", "xar", "xp3", "yz1", "zip", "zipx", "zoo", "zpaq", "zz", "ecc", "ecsbx", "par", "par2", "rev"},
+		},
+		&FiletypeSortingFolder{
+			Name:       "Directories",
+			Extensions: []string{},
+		},
+		&FiletypeSortingFolder{
+			Name:       "Documents",
+			Extensions: []string{"doc", "docx", "odt", "msg", "rtf", "tex", "txt", "wks", "wps", "wpd", "md"},
+		},
+		&FiletypeSortingFolder{
+			Name:       "Images",
+			Extensions: []string{"jpeg", "jpg", "ai", "bmp", "gif", "heif", "heic", "ico", "max", "obj", "png", "ps", "psd", "svg", "tif", "tiff", "3ds", "3dm"},
+		},
+		&FiletypeSortingFolder{
+			Name:       "Videos",
+			Extensions: []string{"avi", "flv", "h264", "m4v", "mkv", "mov", "mp4", "mpg", "mpeg", "mpeg-1", "mpeg-2", "mpeg-4", "", "rm", "swf", "vob", "wmv", "3g2", "3gp"},
+		},
 	}
 
-	extensionToDirMap := invertMap(dirs)
-
-	return &filetypeSort{dirsToExtension: dirs, extensionToDir: extensionToDirMap}
+	ftSorter := &FiletypeSorter{Dirs: dirs}
+	ftSorter.initLookup()
+	return ftSorter
 }
+
+func (fts *FiletypeSorter) initLookup() {
+	lookup := make(map[string]*FiletypeSortingFolder)
+
+	for _, sortingFolder := range fts.Dirs {
+		for _, extension := range sortingFolder.Extensions {
+			lookup[extension] = sortingFolder
+		}
+	}
+	fts.Lookup = lookup
+}
+
+func (fts *FiletypeSorter) createScaffolding() error {
+
+}
+
+// func initFiletypeLookupMap(dirs []*FiletypeSortingFolder) map[string]*FiletypeSortingFolder {
+// 	lookup := make(map[string]*FiletypeSortingFolder)
+//
+// 	for _, v := range dirs {
+//
+// 	}
+//
+// }
+
+// func newFiletypeSorter() *FiletypeSorter {
+// 	// The dirs map keys contain the scaffolding structure for sorting. The values
+// 	// represent th
+// 	dirs := map[string][]string{
+// 		"Images":      {"jpeg", "jpg", "ai", "bmp", "gif", "heif", "heic", "ico", "max", "obj", "png", "ps", "psd", "svg", "tif", "tiff", "3ds", "3dm"},
+// 		"Videos":      {"avi", "flv", "h264", "m4v", "mkv", "mov", "mp4", "mpg", "mpeg", "mpeg-1", "mpeg-2", "mpeg-4", "", "rm", "swf", "vob", "wmv", "3g2", "3gp"},
+// 		"Documents":   {"doc", "docx", "odt", "msg", "rtf", "tex", "txt", "wks", "wps", "wpd", "md"},
+// 		"Code":        {"html", "js", "json", "ts", "tsx", "jsx", "go", "c", "cpp", "java", "awk", "sh", "zsh", "lua", "pl", "obj", "s", "sql", "py", "r", "rb", "rs", "cs", "kt", "php", "pm", "rkt", "rktl", "scm", "scala"},
+// 		"Audio":       {"aa", "aax", "act", "aiff", "alac", "au", "wav", "flac", "ra", "wma", "ac3", "m4b", "mp3", "aac", "ots"},
+// 		"PDFs":        {"pdf", "epub"},
+// 		"Compressed":  {"a", "ar", "cpio", "shar", "lbr", "iso", "mar", "sbx", "tar", "br", "bz2", "f", "?xf", "genozip", "gz", "lz", "lz4", "lzma", "lzo", "rz", "sz", "sfark", "xz", "z", "zst", "7z", "s7z", "ace", "afa", "alz", "apk", "arc", "ark", "arc", "cdx", "arj", "b1", "b6z", "ba", "bh", "cab", "car", "cfs", "cpt", "dar", "dd", "dgc", "dmg", "ear", "gca", "genozip", "ha", "hki", "ice", "kgb", "lzh", "lha", "lzx", "pak", "partimg", "paq6", "paq7", "paq8", "pea", "phar", "pim", "pit", "qda", "rar", "rk", "sda", "sea", "sen", "sfx", "shk", "sit", "sitx", "sqx", "tar.gz", "tgz", "tar.z", "tar.bz2", "tbz2", "tar.lz", "tlz", "tar.xz", "txz", "tar.zst", "uc", "uc0", "uc2", "ucn", "ur2", "ue2", "uca", "uha", "war", "wim", "xar", "xp3", "yz1", "zip", "zipx", "zoo", "zpaq", "zz", "ecc", "ecsbx", "par", "par2", "rev"},
+// 		"Other":       {},
+// 		"Directories": {},
+// 	}
+//
+// 	extensionToDirMap := invertMap(dirs)
+//
+// 	return &FiletypeSorter{dirsToExtension: dirs, extensionToDir: extensionToDirMap}
+// }
 
 // invertMap function takes an argument myMap of type map[string][]string, returning a new
 // map where the keys correspond to the individual string values in each slice of myMap.
-func invertMap(myMap map[string][]string) map[string]string {
-	invertedMap := make(map[string]string)
-
-	for k, val := range myMap {
-
-		for _, v := range val {
-			invertedMap[v] = k
-		}
-	}
-	return invertedMap
-}
+// func invertMap(myMap map[string][]string) map[string]string {
+// 	invertedMap := make(map[string]string)
+//
+// 	for k, val := range myMap {
+//
+// 		for _, v := range val {
+// 			invertedMap[v] = k
+// 		}
+// 	}
+// 	return invertedMap
+// }
 
 // createScaffolding method creates the correct directory structure for the
-// filetypeSort. The list of directories are taken from the keys in fs.dirsToExtension
+// FiletypeSorter. The list of directories are taken from the keys in fs.dirsToExtension
 // It will first check if the directories already exist, if they do not, then it will
 // proceed to create them. Any failure is returned as an error.
-func (fts *filetypeSort) createScaffolding() error {
+func (fts *FiletypeSorter) createScaffolding() error {
 
 	scaffoldFolderNames := fts.sliceOfDirs()
 	for _, v := range scaffoldFolderNames {
@@ -144,15 +233,15 @@ func (fts *filetypeSort) createScaffolding() error {
 // sliceOfDirs method takes the keys in the dirsToExtension map, and creates a
 // slice from them. This method allows any changes in the dirsToExtension map to
 // be reflected every time the sliceOfDirs function is called.
-func (fts *filetypeSort) sliceOfDirs() []string {
-	scaffoldFolderNames := make([]string, 0, len(fts.dirsToExtension))
-	for k := range fts.dirsToExtension {
-		scaffoldFolderNames = append(scaffoldFolderNames, k)
-	}
-	return scaffoldFolderNames
-}
+// func (fts *FiletypeSorter) sliceOfDirs() []string {
+// 	scaffoldFolderNames := make([]string, 0, len(fts.dirsToExtension))
+// 	for k := range fts.dirsToExtension {
+// 		scaffoldFolderNames = append(scaffoldFolderNames, k)
+// 	}
+// 	return scaffoldFolderNames
+// }
 
-func (fts *filetypeSort) sort(wd string) error {
+func (fts *FiletypeSorter) Sort(wd string) error {
 	// TODO: use sortDir field in TidyConfig struct to set the directory to be
 	// sorted. For now I will take an argument into sort()
 	err := os.Chdir(wd)
