@@ -8,71 +8,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-// func TestCreateScaffolding(t *testing.T) {
-// 	ftSorter := NewFiletypeSorter()
-// 	want := helperSortedSliceOfDirs(ftSorter)
-//
-// 	wd, _ := os.Getwd()
-// 	// TODO: This is brittle. need the path to be more deterministic.
-// 	err := os.Chdir(path.Join(wd, "testFS"))
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	wd, _ = os.Getwd()
-//
-// 	err = helperCleanUpDirectories(wd)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-//
-// 	t.Run("generate correct list of directories.", func(t *testing.T) {
-// 		err = ftSorter.createScaffolding()
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-//
-// 		got, err := helperSliceOfDirectories(wd)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		assertSlicesEqual(t, got, want)
-//
-// 		err = helperCleanUpDirectories(wd)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 	})
-//
-// 	t.Run("don't create duplicate directories.", func(t *testing.T) {
-// 		err := os.Mkdir("Audio", fs.ModePerm)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		err = os.Mkdir("Compressed", fs.ModePerm)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-//
-// 		err = ftSorter.createScaffolding()
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-//
-// 		got, err := helperSliceOfDirectories(wd)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		assertSlicesEqual(t, got, want)
-//
-// 		err = helperCleanUpDirectories(wd)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-//
-// 	})
-//
-// }
-
 // func TestSort(t *testing.T) {
 // 	// TODO: Also brittle. need to make this more deterministic. Full path name
 // 	// maybe
@@ -142,50 +77,6 @@ func sliceOfDirs(t *testing.T, fsys afero.Fs) ([]string, error) {
 	}
 	return dirsFound, nil
 }
-
-// func helperSortedSliceOfDirs(fts *FiletypeSorter) []string {
-// 	want := fts.sliceOfDirs()
-// 	// want = append(want, ".")
-// 	sort.Slice(want, func(i, j int) bool {
-// 		return want[i] < want[j]
-// 	})
-// 	return want
-//
-// }
-//
-// // helperCleanUpDirectories function will erase every file or empty directory in
-// // the given working directory.
-// func helperCleanUpDirectories(cwd string) error {
-// 	fsys := os.DirFS(cwd)
-// 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-// 		_ = os.RemoveAll(d.Name())
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-//
-// func assertSlicesEqual(t testing.TB, got, want []string) {
-// 	if len(got) != len(want) {
-// 		t.Errorf("got %v, want %v", got, want)
-// 	}
-// 	for i := range got {
-// 		if got[i] != want[i] {
-// 			t.Errorf("got %v, want %v", got, want)
-// 		}
-//
-// 	}
-// }
-//
-// setWD function sets the current working directory to the subdirectory /testFS
-// It returns the directory name as a string and an error. Calling this function
-// at the beginning of each test func ensures that we are performing all work in
-// the correct location, no matter where we were when we started.
-// func setWD() error {
-// 	filepath.
-// }
 
 func TestCreateScaffolding(t *testing.T) {
 

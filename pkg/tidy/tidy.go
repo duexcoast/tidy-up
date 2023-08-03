@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/afero"
 )
@@ -34,6 +35,9 @@ func (t *Tidy) CreateScaffolding() error {
 }
 
 func (t *Tidy) Sort() error {
+	if err := t.CreateScaffolding(); err != nil {
+		return err
+	}
 	if err := t.Sorter.sort(t.Fs); err != nil {
 		return err
 	}
@@ -71,6 +75,10 @@ type FiletypeSortingFolder struct {
 	// The Extensions field contains a slice of all file extensions that should be
 	// sorted in this folder.
 	Extensions []string
+}
+
+func (ftsf *FiletypeSortingFolder) String() string {
+	return ftsf.Name
 }
 
 func NewFiletypeSorter() *FiletypeSorter {
@@ -186,60 +194,40 @@ func idempotentMkdir(name string, perm fs.FileMode, fsys afero.Fs) error {
 }
 
 func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
-	// // TODO: use sortDir field in TidyConfig struct to set the directory to be
-	// // sorted. For now I will take an argument into sort()
-	// wd := "/"
-	// err := os.Chdir(wd)
-	// if err != nil {
-	// 	log.Print(err)
-	// }
-	//
-	// err = fts.createScaffolding()
-	// if err != nil {
-	// 	log.Print(err)
-	// }
-	// scaffoldFolderNames := fts.sliceOfDirs()
-	//
-	// fileSystem := os.DirFS(wd)
-	//
-	// err = fs.WalkDir(fileSystem, ".", func(path string, d fs.DirEntry, err error) error {
-	// 	// check if d is a directory, if it is check to see if it is part of the
-	// 	// scaffolding. If d is part of the scaffolding then return, if not, then
-	// 	// move it to the 'Directories' folder.
-	// 	if d.IsDir() {
-	// 		if contains(scaffoldFolderNames, d.Name()) || d.Name() == "." {
-	// 			return nil
-	// 		}
-	// 		destinationDir := filepath.Join(wd, "Directories")
-	// 		destinationPath := filepath.Join(destinationDir, d.Name())
-	// 		err := os.Rename(path, destinationPath)
-	// 		if err != nil {
-	// 			log.Print(err)
-	// 		}
-	// 		return nil
-	//
-	// 	}
-	// 	ext := getExtension(d.Name())
-	//
-	// 	val, ok := fts.extensionToDir[ext]
-	// 	newLocation := filepath.Join(wd, val, d.Name())
-	// 	if !ok {
-	// 		newLocation = filepath.Join(wd, "Other", d.Name())
-	// 		err := os.Rename(path, newLocation)
-	// 		if err != nil {
-	// 			log.Print(err)
-	// 		}
-	// 	}
-	// 	err = os.Rename(path, newLocation)
-	// 	if err != nil {
-	// 		log.Print(err)
-	// 	}
-	// 	return nil
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	return nil
+	err := afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
+		// check if this is a directory, if it is check to see if it is part of the
+		// scaffolding. If it's is part of the scaffolding then return, if not - then
+		// move it to the 'Directories' folder.
+		if info.IsDir() {
+			if contains(fts.dirsSlice(), info.Name()) || info.Name() == "." {
+				return nil
+			}
+			// see if this works without needing an absolute path
+			destPath := filepath.Join("Directories", info.Name())
+			err := fsys.Rename(info.Name(), destPath)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		ext := getExtension(info.Name())
 
+		val, ok := fts.Lookup[ext]
+		if !ok {
+			destPath := filepath.Join("Other", info.Name())
+			err := fsys.Rename(info.Name(), destPath)
+			if err != nil {
+				return err
+			}
+		}
+		err = fsys.Rename(info.Name(), filepath.Join(val.Name, info.Name()))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
