@@ -2,6 +2,7 @@ package tidy
 
 import (
 	"io/fs"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -69,7 +70,7 @@ func TestFiletypeSort(t *testing.T) {
 
 	for name, tc := range tests {
 		tc := tc
-		t.Run(name, func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.testID), func(t *testing.T) {
 			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
 			Tidy := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
@@ -129,32 +130,32 @@ func TestCreateScaffolding(t *testing.T) {
 	t.Log("Given the need to scaffold the directory structure for sorting.")
 
 	tests := map[string]scaffoldScenario{
-		"empty dir": {
+		"Initial state: directory empty.": {
 			testID:              0,
 			initialDirsPresent:  []string{},
 			initialFilesPresent: []string{},
 			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
-		"scaffolding already present": {
+		"Initial state: scaffolding completely present": {
 			testID:              1,
 			initialDirsPresent:  []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 			initialFilesPresent: []string{},
 			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
-		"scaffolding partially present": {
+		"Initial state: scaffolding partially present": {
 			testID:              2,
 			initialDirsPresent:  []string{"Compressed", "Directories", "Images"},
 			initialFilesPresent: []string{},
 			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
-		"scaffolding present alongside other files": {
+		"Initial state: scaffolding present alongside other files": {
 			testID:              3,
 			initialDirsPresent:  []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 			initialFilesPresent: []string{"story.txt", "intl-players-anthem.mp3", "programming-pearls.pdf", "kobe.iso", "config.lua"},
 			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
-		"scaffolding present alongside extra directories": {
-			testID:              3,
+		"Initial state: scaffolding present alongside additional directories": {
+			testID:              4,
 			initialDirsPresent:  []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos", "Extra", "dotfiles"},
 			initialFilesPresent: []string{},
 			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Extra", "Images", "Other", "PDFs", "Videos", "dotfiles"},
@@ -163,7 +164,7 @@ func TestCreateScaffolding(t *testing.T) {
 
 	for name, tc := range tests {
 		tc := tc
-		t.Run(name, func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.testID), func(t *testing.T) {
 			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
 			ftSorter := NewFiletypeSorter()
