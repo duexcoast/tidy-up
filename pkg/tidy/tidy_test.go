@@ -220,13 +220,17 @@ func sliceOfDirs(t *testing.T, fsys afero.Fs) ([]string, error) {
 	return dirsFound, nil
 }
 
+// mapOfDirs is a helper function that returns a map where the keys are all the
+// directories present at the root, and the values are the files/dirs within them.
+// The map is not recursive, it only displays one level of depth.
+// This function is used for comparing the final sorted state against the desired
+// state.
 func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 	t.Helper()
 	dirMap := make(map[string][]string)
 
 	sliceOfDirs, err := sliceOfDirs(t, fsys)
 	if err != nil {
-		// t.Fatalf("failed constructing map of fs end state, error: %s", err)
 		return nil, err
 	}
 
@@ -239,13 +243,9 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 				return err
 			}
 			if info.IsDir() {
-				// if path == "." {
-				// 	return nil
-				// }
 				fmt.Printf("[skip]\t%s\n", info.Name())
 				return nil
 			}
-			fmt.Printf("[WALKED]\t%s\n", info.Name())
 			fileSlice = append(fileSlice, info.Name())
 			return nil
 		})
@@ -257,30 +257,3 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 
 	return dirMap, nil
 }
-
-// func createInitialFsState(fsys afero.Fs, tc sortScenario) error {
-//
-// 	for _, v := range tc.initialDirsPresent {
-// 		err := fsys.Mkdir(v, 0777)
-// 		if err != nil {
-// 			t.Fatalf("Could not create starting state of test dir, error: %s", err)
-// 		}
-// 	}
-//
-// 	for _, v := range tc.initialFilesPresent {
-// 		file, err := fsys.Create(v)
-// 		if err != nil {
-// 			t.Fatalf("Could not create the starting state of test dir, error: %s", err)
-// 		}
-// 		defer file.Close()
-// 	}
-// _ = afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
-// 	if err != nil {
-// 		return err
-// 	}
-// 	fmt.Printf("[walk in initial] %s\n", path)
-// 	return nil
-// })
-// return nil
-//
-// }
