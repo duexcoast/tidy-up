@@ -19,10 +19,10 @@ type Tidy struct {
 	Fs afero.Fs
 }
 
-func NewTidy(sorter Sorter) *Tidy {
+func NewTidy(sorter Sorter, fsys afero.Fs) *Tidy {
 	return &Tidy{
 		Sorter: sorter,
-		Fs:     afero.NewOsFs(),
+		Fs:     fsys,
 	}
 }
 
@@ -201,11 +201,14 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		}
 
 		// check if this is a directory, if it is check to see if it is part of the
-		// scaffolding. If it's is part of the scaffolding then return, if not - then
+		// scaffolding. If it is part of the scaffolding then return, if not - then
 		// move it to the 'Directories' folder.
 		if f.IsDir() {
-			if contains(fts.dirsSlice(), f.Name()) || f.Name() == "." {
+			if contains(fts.dirsSlice(), f.Name()) {
 				return filepath.SkipDir
+			}
+			if path == "." {
+				return nil
 			}
 
 			dest := filepath.Join("Directories", f.Name())
@@ -238,5 +241,13 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 	if err != nil {
 		return err
 	}
+	// _ = afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	fmt.Printf("[IN SORT] %s\n", path)
+	//
+	// 	return nil
+	// })
 	return nil
 }

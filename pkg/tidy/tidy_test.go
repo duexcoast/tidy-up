@@ -1,18 +1,18 @@
 package tidy
 
 import (
+	"fmt"
 	"io/fs"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 )
 
-type fsState interface {
-	dirsPresent() []string
-	filesPresent() []string
-}
+// type fsState interface {
+// 	dirsPresent() []string
+// 	filesPresent() []string
+// }
 
 type sortScenario struct {
 	initialDirsPresent  []string
@@ -20,13 +20,13 @@ type sortScenario struct {
 	want                map[string][]string
 }
 
-func (ss sortScenario) dirsPresent() []string {
-	return ss.initialDirsPresent
-}
-
-func (ss sortScenario) filesPresent() []string {
-	return ss.initialFilesPresent
-}
+// func (ss sortScenario) dirsPresent() []string {
+// 	return ss.initialDirsPresent
+// }
+//
+// func (ss sortScenario) filesPresent() []string {
+// 	return ss.initialFilesPresent
+// }
 
 func TestSort(t *testing.T) {
 	tests := map[string]sortScenario{
@@ -75,23 +75,43 @@ func TestSort(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 
-			Tidy := NewTidy(NewFiletypeSorter())
-			Tidy.Fs = afero.NewMemMapFs()
+			Tidy := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
 
 			// Setup the initial state of the directory before testing.
-			if err := createInitialFsState(t, Tidy, tc); err != nil {
-				t.Fatal(err)
+			// Create the initial directories.
+			for _, v := range tc.initialDirsPresent {
+				err := Tidy.Fs.Mkdir(v, 0777)
+				if err != nil {
+					t.Fatalf("Could not create starting state of test dir, error: %s", err)
+				}
 			}
 
+			// Create the initial files.
+			for _, v := range tc.initialFilesPresent {
+				file, err := Tidy.Fs.Create(v)
+				if err != nil {
+					t.Fatalf("Could not create the starting state of test dir, error: %s", err)
+				}
+				defer file.Close()
+			}
+
+			// This is what we're testing
 			if err := Tidy.Sort(); err != nil {
 				t.Fatalf("could not sort the directory, error: %s", err)
 			}
 
-			// got, err := mapOfDirs(t, Tidy.Fs)
-			// if err != nil {
-			// 	t.Fatalf("could not assess the final state of fs, err: %s", err)
-			// }
-			//
+			slice, err := sliceOfDirs(t, Tidy.Fs)
+			fmt.Printf("[SLICE] %#v", slice)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := mapOfDirs(t, Tidy.Fs)
+			if err != nil {
+				t.Fatalf("could not assess the final state of fs, err: %s", err)
+			}
+			fmt.Printf("[GOT] %v\n", got)
+
 			// if !cmp.Equal(tc.want, got) {
 			// 	t.Fatalf("\ngot:\n\t%#v, \nwant:\n\t%#v", got, tc.want)
 			// }
@@ -103,14 +123,6 @@ func TestSort(t *testing.T) {
 type scaffoldScenario struct {
 	initialDirsPresent  []string
 	initialFilesPresent []string
-}
-
-func (ss scaffoldScenario) dirsPresent() []string {
-	return ss.initialDirsPresent
-}
-
-func (ss scaffoldScenario) filesPresent() []string {
-	return ss.initialFilesPresent
 }
 
 func TestCreateScaffolding(t *testing.T) {
@@ -139,16 +151,27 @@ func TestCreateScaffolding(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 
 			ftSorter := NewFiletypeSorter()
-			Tidy := NewTidy(ftSorter)
-			// By default the Fs is set to afero.NewOsFs but we want to change it
-			// to a MemMapFs for efficient testing and painless clean up
-			Tidy.Fs = afero.NewMemMapFs()
+			Tidy := NewTidy(ftSorter, afero.NewMemMapFs())
 
 			// Setup the initial state of the directory before testing.
-			if err := createInitialFsState(t, Tidy, tc); err != nil {
-				t.Fatal(err)
+			// Create the initial directories
+			for _, v := range tc.initialDirsPresent {
+				err := Tidy.Fs.Mkdir(v, 0777)
+				if err != nil {
+					t.Fatalf("Could not create starting state of test dir, error: %s", err)
+				}
 			}
 
+			// Create the initial files
+			for _, v := range tc.initialFilesPresent {
+				file, err := Tidy.Fs.Create(v)
+				if err != nil {
+					t.Fatalf("Could not create the starting state of test dir, error: %s", err)
+				}
+				defer file.Close()
+			}
+
+			// This is what we're testing
 			err := Tidy.CreateScaffolding()
 			if err != nil {
 				t.Fatalf("Couldn't create scaffolding, error: %s", err)
@@ -177,12 +200,17 @@ func TestCreateScaffolding(t *testing.T) {
 func sliceOfDirs(t *testing.T, fsys afero.Fs) ([]string, error) {
 	t.Helper()
 	dirsFound := make([]string, 0)
+
 	err := afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && path != "." {
+		if info.IsDir() {
+			if path == "." {
+				return nil
+			}
 			dirsFound = append(dirsFound, info.Name())
+			return nil
 		}
 		return nil
 	})
@@ -203,6 +231,7 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 	}
 
 	for _, dirName := range sliceOfDirs {
+		fmt.Printf("[loop] %s\n", dirName)
 		fileSlice := make([]string, 0)
 
 		err := afero.Walk(fsys, dirName, func(path string, info fs.FileInfo, err error) error {
@@ -210,9 +239,14 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 				return err
 			}
 			if info.IsDir() {
-				fileSlice = append(fileSlice, info.Name())
-				return filepath.SkipDir
+				// if path == "." {
+				// 	return nil
+				// }
+				fmt.Printf("[skip]\t%s\n", info.Name())
+				return nil
 			}
+			fmt.Printf("[WALKED]\t%s\n", info.Name())
+			fileSlice = append(fileSlice, info.Name())
 			return nil
 		})
 		if err != nil {
@@ -224,23 +258,29 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 	return dirMap, nil
 }
 
-func createInitialFsState(t *testing.T, Tidy *Tidy, tc fsState) error {
-	t.Helper()
-
-	for _, v := range tc.dirsPresent() {
-		err := Tidy.Fs.Mkdir(v, 0777)
-		if err != nil {
-			t.Fatalf("Could not create starting state of test dir, error: %s", err)
-		}
-	}
-
-	for _, v := range tc.filesPresent() {
-		file, err := Tidy.Fs.Create(v)
-		if err != nil {
-			t.Fatalf("Could not create the starting state of test dir, error: %s", err)
-		}
-		defer file.Close()
-	}
-	return nil
-
-}
+// func createInitialFsState(fsys afero.Fs, tc sortScenario) error {
+//
+// 	for _, v := range tc.initialDirsPresent {
+// 		err := fsys.Mkdir(v, 0777)
+// 		if err != nil {
+// 			t.Fatalf("Could not create starting state of test dir, error: %s", err)
+// 		}
+// 	}
+//
+// 	for _, v := range tc.initialFilesPresent {
+// 		file, err := fsys.Create(v)
+// 		if err != nil {
+// 			t.Fatalf("Could not create the starting state of test dir, error: %s", err)
+// 		}
+// 		defer file.Close()
+// 	}
+// _ = afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
+// 	if err != nil {
+// 		return err
+// 	}
+// 	fmt.Printf("[walk in initial] %s\n", path)
+// 	return nil
+// })
+// return nil
+//
+// }
