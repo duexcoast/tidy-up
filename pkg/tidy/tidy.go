@@ -2,9 +2,11 @@ package tidy
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/afero"
 )
@@ -17,12 +19,11 @@ type Tidy struct {
 	Fs afero.Fs
 }
 
-func NewTidy(sorter Sorter, Fs afero.Fs) *Tidy {
+func NewTidy(sorter Sorter) *Tidy {
 	return &Tidy{
 		Sorter: sorter,
-		Fs:     Fs,
+		Fs:     afero.NewOsFs(),
 	}
-
 }
 
 // Method CreateScaffolding() creates the given scaffolding for the directory
@@ -78,7 +79,7 @@ type FiletypeSortingFolder struct {
 }
 
 func (ftsf *FiletypeSortingFolder) String() string {
-	return ftsf.Name
+	return fmt.Sprintf("%s will store files with the following extensions: [ %s ]", ftsf.Name, strings.Join(ftsf.Extensions, ", "))
 }
 
 func NewFiletypeSorter() *FiletypeSorter {
@@ -194,33 +195,45 @@ func idempotentMkdir(name string, perm fs.FileMode, fsys afero.Fs) error {
 }
 
 func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
-	err := afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
+	fmt.Println("CHECK")
+	err := afero.Walk(fsys, ".", func(path string, f fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		fmt.Println(f.Name(), "\t", path)
+
 		// check if this is a directory, if it is check to see if it is part of the
 		// scaffolding. If it's is part of the scaffolding then return, if not - then
 		// move it to the 'Directories' folder.
-		if info.IsDir() {
-			if contains(fts.dirsSlice(), info.Name()) || info.Name() == "." {
-				return nil
+		if f.IsDir() {
+			if contains(fts.dirsSlice(), f.Name()) || f.Name() == "." {
+				fmt.Printf("[SkipDir]\t%s\t%s", f.Name(), path)
+				return filepath.SkipDir
 			}
+
 			// see if this works without needing an absolute path
-			destPath := filepath.Join("Directories", info.Name())
-			err := fsys.Rename(info.Name(), destPath)
+			destPath := filepath.Join(path, "Directories", f.Name())
+
+			fmt.Println("Rename")
+			err := fsys.Rename(f.Name(), destPath)
+			fmt.Println(path, "\t", f.Name())
 			if err != nil {
 				return err
 			}
 			return nil
 		}
-		ext := getExtension(info.Name())
+		fmt.Println("CAN OYU SEE THIS")
+		ext := getExtension(f.Name())
 
 		val, ok := fts.Lookup[ext]
 		if !ok {
-			destPath := filepath.Join("Other", info.Name())
-			err := fsys.Rename(info.Name(), destPath)
+			destPath := filepath.Join(path, "Other", f.Name())
+			err := fsys.Rename(f.Name(), destPath)
 			if err != nil {
 				return err
 			}
 		}
-		err = fsys.Rename(info.Name(), filepath.Join(val.Name, info.Name()))
+		err = fsys.Rename(f.Name(), filepath.Join(val.Name, f.Name()))
 		if err != nil {
 			return err
 		}
