@@ -195,48 +195,44 @@ func idempotentMkdir(name string, perm fs.FileMode, fsys afero.Fs) error {
 }
 
 func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
-	fmt.Println("CHECK")
 	err := afero.Walk(fsys, ".", func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(f.Name(), "\t", path)
 
 		// check if this is a directory, if it is check to see if it is part of the
 		// scaffolding. If it's is part of the scaffolding then return, if not - then
 		// move it to the 'Directories' folder.
 		if f.IsDir() {
 			if contains(fts.dirsSlice(), f.Name()) || f.Name() == "." {
-				fmt.Printf("[SkipDir]\t%s\t%s", f.Name(), path)
 				return filepath.SkipDir
 			}
 
-			// see if this works without needing an absolute path
-			destPath := filepath.Join(path, "Directories", f.Name())
+			dest := filepath.Join("Directories", f.Name())
 
-			fmt.Println("Rename")
-			err := fsys.Rename(f.Name(), destPath)
-			fmt.Println(path, "\t", f.Name())
+			err := fsys.Rename(f.Name(), dest)
+			if err != nil {
+				return err
+			}
+			return filepath.SkipDir
+		}
+		ext := getExtension(f.Name())
+
+		val, ok := fts.Lookup[ext]
+		if !ok {
+			dest := filepath.Join("Other", f.Name())
+			err := fsys.Rename(f.Name(), dest)
 			if err != nil {
 				return err
 			}
 			return nil
 		}
-		fmt.Println("CAN OYU SEE THIS")
-		ext := getExtension(f.Name())
-
-		val, ok := fts.Lookup[ext]
-		if !ok {
-			destPath := filepath.Join(path, "Other", f.Name())
-			err := fsys.Rename(f.Name(), destPath)
-			if err != nil {
-				return err
-			}
-		}
-		err = fsys.Rename(f.Name(), filepath.Join(val.Name, f.Name()))
+		dest := filepath.Join(val.Name, f.Name())
+		err = fsys.Rename(f.Name(), dest)
 		if err != nil {
 			return err
 		}
+		fmt.Println("[rename successful]")
 		return nil
 	})
 	if err != nil {
