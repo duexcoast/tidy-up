@@ -1,7 +1,6 @@
 package tidy
 
 import (
-	"fmt"
 	"io/fs"
 	"testing"
 
@@ -9,28 +8,24 @@ import (
 	"github.com/spf13/afero"
 )
 
-// type fsState interface {
-// 	dirsPresent() []string
-// 	filesPresent() []string
-// }
+// Success and failure markers.
+const (
+	success = "\u2713"
+	failed  = "\u2717"
+)
 
 type sortScenario struct {
+	testID              int
 	initialDirsPresent  []string
 	initialFilesPresent []string
 	want                map[string][]string
 }
 
-// func (ss sortScenario) dirsPresent() []string {
-// 	return ss.initialDirsPresent
-// }
-//
-// func (ss sortScenario) filesPresent() []string {
-// 	return ss.initialFilesPresent
-// }
-
-func TestSort(t *testing.T) {
+func TestFiletypeSort(t *testing.T) {
+	t.Log("Given the need to sort a directory by filetype.")
 	tests := map[string]sortScenario{
-		"no initial scaffolding. no files to sort": {
+		"No initial scaffolding. No files to sort.": {
+			testID:              0,
 			initialDirsPresent:  []string{},
 			initialFilesPresent: []string{},
 			want: map[string][]string{
@@ -45,7 +40,8 @@ func TestSort(t *testing.T) {
 				"Videos":      {},
 			},
 		},
-		"no initial scaffolding. small amount of files to sort": {
+		"No initial scaffolding. Small amount of files to sort.": {
+			testID:             1,
 			initialDirsPresent: []string{},
 			initialFilesPresent: []string{
 				"story.txt",
@@ -62,7 +58,7 @@ func TestSort(t *testing.T) {
 				"Code":        {"config.lua"},
 				"Compressed":  {"kobe.iso"},
 				"Directories": {},
-				"Documents":   {"story.txt", "resume2023.docx"},
+				"Documents":   {"resume2023.docx", "story.txt"},
 				"Images":      {},
 				"Other":       {"random.xxx"},
 				"PDFs":        {"programming-pearls.pdf"},
@@ -74,6 +70,7 @@ func TestSort(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
 			Tidy := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
 
@@ -82,115 +79,135 @@ func TestSort(t *testing.T) {
 			for _, v := range tc.initialDirsPresent {
 				err := Tidy.Fs.Mkdir(v, 0777)
 				if err != nil {
-					t.Fatalf("Could not create starting state of test dir, error: %s", err)
+					t.Fatalf("\t%s\tTest %d:\tShould be able to setup starting state of directories in the test filesystem, error: %v", failed, tc.testID, err)
 				}
 			}
+			t.Logf("\t%s\tTest %d:\tShould be able to setup starting state of directories in the test filesystem.", success, tc.testID)
 
 			// Create the initial files.
 			for _, v := range tc.initialFilesPresent {
 				file, err := Tidy.Fs.Create(v)
 				if err != nil {
-					t.Fatalf("Could not create the starting state of test dir, error: %s", err)
+					t.Fatalf("\t%s\tTest %d:\tShould be able to setup starting state of files in the test filesystem: %v", failed, tc.testID, err)
 				}
 				defer file.Close()
 			}
+			t.Logf("\t%s\tTest %d:\tShould be able to setup starting state of files in the test filesystem.", success, tc.testID)
+			t.Logf("\t%s\tTest %d:\tTest successfully setup mock MemMapFS.", success, tc.testID)
 
 			// This is what we're testing
 			if err := Tidy.Sort(); err != nil {
-				t.Fatalf("could not sort the directory, error: %s", err)
-			}
-
-			slice, err := sliceOfDirs(t, Tidy.Fs)
-			fmt.Printf("[SLICE] %#v", slice)
-			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("\t%s\tTest %d:\tShould be able to call Tidy.Sort() without error: %v", failed, tc.testID, err)
 			}
 
 			got, err := mapOfDirs(t, Tidy.Fs)
 			if err != nil {
-				t.Fatalf("could not assess the final state of fs, err: %s", err)
+				t.Fatalf("\t%s\tTest %d:\tShould be able to create map of final directory structure: %v", failed, tc.testID, err)
 			}
-			fmt.Printf("[GOT] %v\n", got)
+			// t.Logf("\t%s\tTest %d: Should be able to create map of final directory structure: %v", success, tc.testID)
 
-			// if !cmp.Equal(tc.want, got) {
-			// 	t.Fatalf("\ngot:\n\t%#v, \nwant:\n\t%#v", got, tc.want)
-			// }
+			if !cmp.Equal(got, tc.want) {
+				t.Logf("\t\tTest %d:\texp: %v", tc.testID, tc.want)
+				t.Logf("\t\tTest %d:\tgot: %v", tc.testID, got)
+				t.Logf("\t\tTest %d:\tdiff: %v", tc.testID, cmp.Diff(got, tc.want))
+				t.Fatalf("\t%s\tTest %d:\tShould have sorted files by their extension.", failed, tc.testID)
+			}
+			t.Logf("\t%s\tTest %d:\tShould have sorted files by their extension", success, tc.testID)
 
 		})
 	}
 }
 
 type scaffoldScenario struct {
+	testID              int
 	initialDirsPresent  []string
 	initialFilesPresent []string
+	want                []string
 }
 
 func TestCreateScaffolding(t *testing.T) {
+	t.Log("Given the need to scaffold the directory structure for sorting.")
 
 	tests := map[string]scaffoldScenario{
 		"empty dir": {
+			testID:              0,
 			initialDirsPresent:  []string{},
 			initialFilesPresent: []string{},
+			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
 		"scaffolding already present": {
+			testID:              1,
 			initialDirsPresent:  []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 			initialFilesPresent: []string{},
+			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
 		"scaffolding partially present": {
+			testID:              2,
 			initialDirsPresent:  []string{"Compressed", "Directories", "Images"},
 			initialFilesPresent: []string{},
+			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 		},
 		"scaffolding present alongside other files": {
+			testID:              3,
 			initialDirsPresent:  []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
 			initialFilesPresent: []string{"story.txt", "intl-players-anthem.mp3", "programming-pearls.pdf", "kobe.iso", "config.lua"},
+			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos"},
+		},
+		"scaffolding present alongside extra directories": {
+			testID:              3,
+			initialDirsPresent:  []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Images", "Other", "PDFs", "Videos", "Extra", "dotfiles"},
+			initialFilesPresent: []string{},
+			want:                []string{"Audio", "Code", "Compressed", "Directories", "Documents", "Extra", "Images", "Other", "PDFs", "Videos", "dotfiles"},
 		},
 	}
 
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
 			ftSorter := NewFiletypeSorter()
 			Tidy := NewTidy(ftSorter, afero.NewMemMapFs())
 
 			// Setup the initial state of the directory before testing.
-			// Create the initial directories
+			// Create the initial directories.
 			for _, v := range tc.initialDirsPresent {
 				err := Tidy.Fs.Mkdir(v, 0777)
 				if err != nil {
-					t.Fatalf("Could not create starting state of test dir, error: %s", err)
+					t.Fatalf("\t%s\tTest %d:\tShould be able to setup starting state of directories in the test filesystem, error: %v", failed, tc.testID, err)
 				}
 			}
+			t.Logf("\t%s\tTest %d:\tShould be able to setup starting state of directories in the test filesystem", success, tc.testID)
 
-			// Create the initial files
+			// Create the initial files.
 			for _, v := range tc.initialFilesPresent {
 				file, err := Tidy.Fs.Create(v)
 				if err != nil {
-					t.Fatalf("Could not create the starting state of test dir, error: %s", err)
+					t.Fatalf("\t%s\tTest %d:\tShould be able to setup starting state of files in the test filesystem: %v", failed, tc.testID, err)
 				}
 				defer file.Close()
 			}
+			t.Logf("\t%s\tTest %d:\tShould be able to setup starting state of files in the test filesystem.", success, tc.testID)
+			t.Logf("\t%s\tTest %d:\tTest successfully setup mock MemMapFS.", success, tc.testID)
 
 			// This is what we're testing
 			err := Tidy.CreateScaffolding()
 			if err != nil {
-				t.Fatalf("Couldn't create scaffolding, error: %s", err)
+				t.Fatalf("\t%s\tTest %d:\tShould have called Tidy.CreateScaffolding() without error: %v", failed, tc.testID, err)
 			}
 
 			got, err := sliceOfDirs(t, Tidy.Fs)
 			if err != nil {
-				t.Fatalf("Couldn't read the dirs in the test filesystem, error: %s", err)
-			}
-			want := ftSorter.dirsSlice()
-
-			// diff := cmp.Diff(got, want)
-			// if diff != "" {
-			// 	t.Fatal(diff)
-			// }
-			if !(cmp.Equal(want, got)) {
-				t.Fatalf("\ngot:\n\t%#v, \nwant:\n\t%#v", got, want)
+				t.Fatalf("\t%s\tTest %d:\tShould be able to create a slice of final directory structure: %v", failed, tc.testID, err)
 			}
 
+			if !(cmp.Equal(tc.want, got)) {
+				t.Logf("\t\tTest %d:\texp: %v", tc.testID, tc.want)
+				t.Logf("\t\tTest %d:\tgot: %v", tc.testID, got)
+				t.Logf("\t\tTest %d:\tdiff: %v", tc.testID, cmp.Diff(got, tc.want))
+				t.Fatalf("\t%s\tTest %d:\tShould have scaffolded the correct directory structure.", failed, tc.testID)
+			}
+			t.Logf("\t%s\tTest %d:\tShould have scaffolded the correct directory structure.", success, tc.testID)
 		})
 	}
 }
@@ -235,7 +252,6 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 	}
 
 	for _, dirName := range sliceOfDirs {
-		fmt.Printf("[loop] %s\n", dirName)
 		fileSlice := make([]string, 0)
 
 		err := afero.Walk(fsys, dirName, func(path string, info fs.FileInfo, err error) error {
@@ -243,7 +259,6 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 				return err
 			}
 			if info.IsDir() {
-				fmt.Printf("[skip]\t%s\n", info.Name())
 				return nil
 			}
 			fileSlice = append(fileSlice, info.Name())

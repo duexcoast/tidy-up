@@ -235,7 +235,6 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("[rename successful]")
 		return nil
 	})
 	if err != nil {

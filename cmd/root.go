@@ -11,8 +11,8 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "tidy-up",
-	Short: "Tidies up a messy directory in a configurable fashion.",
+	Use:   "tidy",
+	Short: "Tidys up a messy directory in a configurable fashion.",
 	Long: `Have your directories gotten out of control? Do you need help?
 tidy-up is here to help you gain back control. Provide a chosen
 directory, by default tidy-up will sort the directory into sub-
