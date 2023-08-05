@@ -1,0 +1,19 @@
+version: "3"
+
+tasks:
+  build:
+    desc: Build the app
+    cmds:
+      - GOFLAGS=-mod=mod go build -o bin/tidy-up main.go
+
+  run:
+    desc: Run the app
+    cmds:
+      - GOFLAGS=-mod=mod go run main.go
+
+  rundev:
+    desc: Run the app in Development mode
+    cmds:
+      - LOG_LEVEL=1 APP_ENV="development" go run main.go
+
+  # clean:

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
+	"golang.org/x/exp/slices"
 )
 
 type Tidy struct {
@@ -79,6 +80,7 @@ func (t *Tidy) Sort() error {
 type Sorter interface {
 	createScaffolding(fsys afero.Fs) error
 	sort(fsys afero.Fs) error
+	// undo() error
 }
 
 type FiletypeLookup map[string]*FiletypeSortingFolder
@@ -186,6 +188,12 @@ func (fts *FiletypeSorter) dirsSlice() []string {
 	return dirs
 }
 
+// createScaffolding reads the names of the elements in fts.Dirs and creates
+// directories of the same names in the current working directory.
+//
+// If there is already a folder with the same name then createScaffolding
+// will refrain from creating that directory. If there is a file with the same
+// name, however, then an error will be returned.
 func (fts *FiletypeSorter) createScaffolding(fsys afero.Fs) error {
 	for _, v := range fts.Dirs {
 		err := idempotentMkdir(v.Name, fs.ModePerm, fsys)
@@ -215,6 +223,9 @@ func idempotentMkdir(name string, perm fs.FileMode, fsys afero.Fs) error {
 			return err
 		}
 		if !info.IsDir() {
+			// TODO: Need to deal with the case in which there is an existing file, that is not
+			// a directory, but that has the same name as one of the needed directories. Currently
+			// the behavior is to return an error. There should probably be a better solution.
 			return errors.New("path exists but is not a directory")
 		}
 		return nil
@@ -232,7 +243,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		// scaffolding. If it is part of the scaffolding then return, if not - then
 		// move it to the 'Directories' folder.
 		if f.IsDir() {
-			if contains(fts.dirsSlice(), f.Name()) {
+			if slices.Contains(fts.dirsSlice(), f.Name()) {
 				return filepath.SkipDir
 			}
 			if path == "." {
@@ -268,13 +279,8 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 	if err != nil {
 		return err
 	}
-	// _ = afero.Walk(fsys, ".", func(path string, info fs.FileInfo, err error) error {
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	fmt.Printf("[IN SORT] %s\n", path)
-	//
-	// 	return nil
-	// })
 	return nil
+}
+
+type CreatedAtSorter struct {
 }

@@ -5,18 +5,9 @@ import (
 	"strings"
 )
 
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
-// getExtension returns the extension of a filename with no preceding ".".
+// getExtension returns the extension of a filename with no preceding dot.
 // For example, passing in the string "telephone.txt" would return "txt".
-// The extension is defined as the suffix after the final "." in the provided path.
+// The extension is defined as the suffix after the final dot in the provided path.
 // If the provided path does not contain a "." then getExtension will return an
 // empty string "".
 func getExtension(filename string) string {
