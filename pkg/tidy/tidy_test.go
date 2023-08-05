@@ -73,7 +73,11 @@ func TestFiletypeSort(t *testing.T) {
 		t.Run(strconv.Itoa(tc.testID), func(t *testing.T) {
 			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
-			Tidy := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
+			Tidy, err := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
+			if err != nil {
+				t.Fatalf("\t%s\tTest %d:\tShould be able to initialize Tidy struct, error: %v", failed, tc.testID, err)
+			}
+			t.Logf("\t%s\tTest %d:\tShould be able to initialize Tidy struct", success, tc.testID)
 
 			// Setup the initial state of the directory before testing.
 			// Create the initial directories.
@@ -167,8 +171,11 @@ func TestCreateScaffolding(t *testing.T) {
 		t.Run(strconv.Itoa(tc.testID), func(t *testing.T) {
 			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
-			ftSorter := NewFiletypeSorter()
-			Tidy := NewTidy(ftSorter, afero.NewMemMapFs())
+			Tidy, err := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
+			if err != nil {
+				t.Fatalf("\t%s\tTest %d:\tShould be able to initialize Tidy struct, error: %v", failed, tc.testID, err)
+			}
+			t.Logf("\t%s\tTest %d:\tShould be able to initialize Tidy struct", success, tc.testID)
 
 			// Setup the initial state of the directory before testing.
 			// Create the initial directories.
@@ -192,7 +199,7 @@ func TestCreateScaffolding(t *testing.T) {
 			t.Logf("\t%s\tTest %d:\tTest successfully setup mock MemMapFS.", success, tc.testID)
 
 			// This is what we're testing
-			err := Tidy.CreateScaffolding()
+			err = Tidy.CreateScaffolding()
 			if err != nil {
 				t.Fatalf("\t%s\tTest %d:\tShould have called Tidy.CreateScaffolding() without error: %v", failed, tc.testID, err)
 			}

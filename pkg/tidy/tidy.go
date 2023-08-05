@@ -17,13 +17,41 @@ type Tidy struct {
 	// Using afero to interact with the filesystem which allows easier mocking of
 	// filesystem in tests
 	Fs afero.Fs
+
+	// sortDir is the directory to be sorted. The current working directory will
+	// be equal to the value of sortDir
+	sortDir string
 }
 
-func NewTidy(sorter Sorter, fsys afero.Fs) *Tidy {
-	return &Tidy{
-		Sorter: sorter,
-		Fs:     fsys,
+func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
 	}
+	return &Tidy{
+		Sorter:  sorter,
+		Fs:      fsys,
+		sortDir: wd,
+	}, nil
+}
+
+func (t *Tidy) ChangeSortDir(path string) error {
+	// cleanPath := filepath.Clean(path)
+	info, err := t.Fs.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		t.sortDir = path
+		err := os.Chdir(path)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return errors.New("the string passed is not a directory.")
+
 }
 
 // Method CreateScaffolding() creates the given scaffolding for the directory
@@ -106,7 +134,7 @@ func NewFiletypeSorter() *FiletypeSorter {
 		},
 		{
 			Name:       "Images",
-			Extensions: []string{"jpeg", "jpg", "ai", "bmp", "gif", "heif", "heic", "ico", "max", "obj", "png", "ps", "psd", "svg", "tif", "tiff", "3ds", "3dm"},
+			Extensions: []string{"jpeg", "jpg", "ai", "bmp", "gif", "heif", "heic", "ico", "max", "obj", "png", "ps", "psd", "svg", "tif", "tiff", "3ds", "3dm", "webp"},
 		},
 		{
 			Name:       "Other",
@@ -222,7 +250,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		ext := getExtension(f.Name())
 
 		val, ok := fts.Lookup[ext]
-		if !ok {
+		if !ok || ext == "" {
 			dest := filepath.Join("Other", f.Name())
 			err := fsys.Rename(f.Name(), dest)
 			if err != nil {

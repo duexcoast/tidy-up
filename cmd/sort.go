@@ -6,26 +6,43 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/duexcoast/tidy-up/pkg/tidy"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
 var (
-	dirPath string
+	sortType string
 )
 
 // sortCmd represents the clean command
 var sortCmd = &cobra.Command{
 	Use:     "sort",
-	Aliases: []string{"c"},
-	Short:   "This command will sort up the specified directory.",
+	Aliases: []string{"s"},
+	Short:   "This command will sort the specified directory.",
 	Long:    ``,
+	Args:    cobra.RangeArgs(0, 1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("sort called")
+		Tidy, err := tidy.NewTidy(tidy.NewFiletypeSorter(), afero.NewOsFs())
+		if err != nil {
+			fmt.Printf("error: %s\n", err)
+		}
+		// arg is path of directory to be sorted
+		if len(args) == 1 {
+			err := Tidy.ChangeSortDir(args[0])
+			if err != nil {
+				fmt.Printf("error: %s\n", err)
+			}
+		}
+		err = Tidy.Sort()
+		if err != nil {
+			fmt.Printf("error: %s\n", err)
+		}
 	},
 }
 
 func init() {
-	sortCmd.Flags().StringVarP(&dirPath, "dir", "d", "", "The directory to be sorted.")
+	sortCmd.Flags().StringVarP(&sortType, "type", "t", "", "The sort type to be used")
 	rootCmd.AddCommand(sortCmd)
 
 	// Here you will define your flags and configuration settings.
