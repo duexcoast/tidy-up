@@ -55,7 +55,7 @@ func newSortCommand(opts *sortCmdOptions) *cobra.Command {
 			l := logger.Get()
 			err := godotenv.Load(opts.envFiles...)
 			if err != nil {
-
+				l.Debug().Str(Msg("error loading env files.")
 			}
 			Tidy, err := tidy.NewTidy(tidy.NewFiletypeSorter(), afero.NewOsFs())
 			if err != nil {
