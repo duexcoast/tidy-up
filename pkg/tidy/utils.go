@@ -47,15 +47,43 @@ func dirsInCwd(fsys afero.Fs) ([]string, error) {
 	return dirsFound, nil
 }
 
-func moveToParentDir(fsys afero.Fs, path string) error {
+// moveToParentDir will take the file located at the path arguement, and move it
+// into the parent directory. An error will be returned if the renaming was unsuccesful.
+// If the renaming was succesfull the newPath return value will be an absolute path to
+// the file.
+//
+// For example: if you pass in a file located at "/Users/duexcoast/Downloads/test/myfile.txt"
+// it will be moved to "/Users/duexcoast/Downloads/myfile.txt"
+func moveToParentDir(fsys afero.Fs, path string) (newPath string, err error) {
 	fileName := filepath.Base(path)
 	wd, _ := os.Getwd()
 
 	dest := filepath.Join(wd, fileName)
 
-	err := fsys.Rename(path, dest)
+	err = fsys.Rename(path, dest)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return dest, nil
+}
+
+// sliceIsSubset will return true if s1 is a subset of s2. Otherwise it will return false.
+// This function requires that both slices are **sorted**, and will return incorrect values
+// if they are not sorted.
+func sliceIsSubset(s1, s2 []string) bool {
+	for len(s1) > 0 {
+		switch {
+		case len(s2) == 0:
+			return false
+		case s1[0] == s2[0]:
+			s1 = s1[1:]
+			s2 = s2[1:]
+		case s1[0] < s2[0]:
+			return false
+		case s1[0] > s2[0]:
+			s2 = s2[1:]
+		}
+	}
+
+	return true
 }

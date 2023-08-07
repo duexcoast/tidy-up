@@ -11,9 +11,9 @@ tasks:
     cmds:
       - GOFLAGS=-mod=mod go run main.go
 
-  rundev:
+  dev:
     desc: Run the app in Development mode
     cmds:
-      - LOG_LEVEL=1 APP_ENV="development" go run main.go
+      - LOG_LEVEL=1 APP_ENV="development" go run main.go {{.CLI_ARGS}}
 
   # clean:

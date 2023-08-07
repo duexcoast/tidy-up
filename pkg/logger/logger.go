@@ -32,8 +32,9 @@ func Get() zerolog.Logger {
 		}
 
 		var output io.Writer = zerolog.ConsoleWriter{
-			Out:        os.Stdout,
-			TimeFormat: time.RFC3339,
+			Out:           os.Stdout,
+			TimeFormat:    time.RFC3339,
+			FieldsExclude: []string{"git_revision", "go_version"},
 		}
 
 		if os.Getenv("APP_ENV") != "development" {

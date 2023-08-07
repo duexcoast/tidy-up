@@ -10,19 +10,26 @@ import (
 	"strings"
 
 	"github.com/duexcoast/tidy-up/pkg/logger"
-	"github.com/google/go-cmp/cmp"
 	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
 	"golang.org/x/exp/slices"
 )
 
+// Tidy is used to execute the sorting of a chosen directory. The Sorter field
+// represents the type of sorting to be done, and the SortDir field represents
+// the directory which will be sorted.
+//
+// To use the tidy package, we must first initialize a Tidy struct.
 type Tidy struct {
+	// Implements the Sorter interface. Allows us to Sort and Unsort the
+	// Sort Dir in various ways.
 	Sorter Sorter
 
 	// Using afero to interact with the filesystem which allows easier mocking of
 	// filesystem in tests
 	Fs afero.Fs
-	// be equal to the value of sortDir
+
+	// The directory which the Sort() and Unsort() methods will execute upon.
 	SortDir string
 
 	logger zerolog.Logger
@@ -31,6 +38,8 @@ type Tidy struct {
 func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
 	wd, err := os.Getwd()
 	if err != nil {
+		l := logger.Get()
+		l.Err(err)
 		return nil, err
 	}
 	return &Tidy{
@@ -47,6 +56,7 @@ func (t *Tidy) ChangeSortDir(path string) error {
 	// cleanPath := filepath.Clean(path)
 	info, err := t.Fs.Stat(path)
 	if err != nil {
+		t.logger.Err(err).Msg("Could not ")
 		return err
 	}
 
@@ -75,6 +85,8 @@ func (t *Tidy) Sort() error {
 	if err := t.CreateScaffolding(); err != nil {
 		return err
 	}
+	// TODO: Where should I check for errors.Is(SortingError), and how should I
+	// log the error?
 	if err := t.Sorter.sort(t.Fs); err != nil {
 		return err
 	}
@@ -271,12 +283,13 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 			}
 
 			dest := filepath.Join("Directories", f.Name())
+			absDest, _ := filepath.Abs(dest)
 
 			err := fsys.Rename(f.Name(), dest)
 			if err != nil {
-				return err
+				return &SortingError{Filename: f.Name(), AbsPath: absDest, Err: err}
 			}
-			fts.logger.Info().Str("Moved", f.Name()).Str("New filepath", dest).Msg("Sorted file to new directory.")
+			fts.logFiletypeSort(f.Name(), absDest, true, true, true)
 			return filepath.SkipDir
 		}
 		ext := getExtension(f.Name())
@@ -284,19 +297,21 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		val, ok := fts.Lookup[ext]
 		if !ok || ext == "" {
 			dest := filepath.Join("Other", f.Name())
+			absDest, _ := filepath.Abs(dest)
 			err := fsys.Rename(f.Name(), dest)
 			if err != nil {
-				return err
+				return &SortingError{Filename: f.Name(), AbsPath: absDest, Err: err}
 			}
-			fts.logger.Info().Str("Moved", f.Name()).Str("New filepath", dest).Msg("Sorted file to new directory.")
+			fts.logFiletypeSort(f.Name(), absDest, false, false, true)
 			return nil
 		}
 		dest := filepath.Join(val.Name, f.Name())
+		absDest, _ := filepath.Abs(dest)
 		err = fsys.Rename(f.Name(), dest)
 		if err != nil {
-			return err
+			return &SortingError{Filename: f.Name(), AbsPath: absDest, Err: err}
 		}
-		fts.logger.Info().Str("Moved", f.Name()).Str("New filepath", dest).Msg("Sorted file to new directory.")
+		fts.logFiletypeSort(f.Name(), absDest, false, true, true)
 		return nil
 	})
 	if err != nil {
@@ -305,14 +320,22 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 	return nil
 }
 
+// undo provides the undo method for the FiletypeSorter. It will look at the
 func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
+	// dirsSlice is the names of the directories that make up the sorting categories
+	// for the filetype sort.
 	dirsSlice := fts.dirsSlice()
+
+	// dirsInCwd is the names of the directories in the current working directory.
 	dirsInCwd, err := dirsInCwd(fsys)
-	fmt.Println(dirsInCwd)
 	if err != nil {
 		return err
 	}
-	if cmp.Equal(dirsSlice, dirsInCwd) {
+	// We want to check if dirsSlice is a subset of dirsInCwd. This would mean that we
+	// have all of the sorting directories present, and we want to extract the files out
+	// of them. There may be other directories present, we will just ignore them, as the goal
+	// is to unsort.
+	if sliceIsSubset(dirsSlice, dirsInCwd) {
 
 		for _, v := range dirsInCwd {
 
@@ -324,13 +347,16 @@ func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
 					return nil
 				}
 
-				err = moveToParentDir(fsys, path)
+				// absPath, _ := filepath.Abs(v)
+				newPath, err := moveToParentDir(fsys, path)
 				if err != nil {
 					return err
 				}
 				if f.IsDir() {
+					fts.logFiletypeSort(f.Name(), newPath, true, true, false)
 					return filepath.SkipDir
 				}
+				fts.logFiletypeSort(f.Name(), newPath, false, true, false)
 				return nil
 			})
 			if err != nil {
@@ -340,10 +366,19 @@ func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
 			if err != nil {
 				return err
 			}
+			absPath, _ := filepath.Abs(v)
+			fts.logger.Info().Str("Deleted Directory", absPath).Msg("Deleted directory.")
 		}
 
 	}
 	return nil
+}
+func (fts *FiletypeSorter) logFiletypeSort(filename, newPath string, isDir, knownExtension, sort bool) {
+	if sort {
+		fts.logger.Info().Str("Moved", filename).Str("New Path", newPath).Bool("Is Dir", isDir).Bool("Known Extension", knownExtension).Msg("Sorted file to new directory.")
+	} else {
+		fts.logger.Info().Str("Moved", filename).Str("New Path", newPath).Bool("Is Dir", isDir).Bool("Known Extension", knownExtension).Msg("Unsorted file to parent directory.")
+	}
 }
 
 type CreatedAtSorter struct {
