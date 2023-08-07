@@ -6,8 +6,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/duexcoast/tidy-up/pkg/logger"
+	"github.com/google/go-cmp/cmp"
+	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
 	"golang.org/x/exp/slices"
 )
@@ -18,10 +22,10 @@ type Tidy struct {
 	// Using afero to interact with the filesystem which allows easier mocking of
 	// filesystem in tests
 	Fs afero.Fs
-
-	// sortDir is the directory to be sorted. The current working directory will
 	// be equal to the value of sortDir
-	sortDir string
+	SortDir string
+
+	logger zerolog.Logger
 }
 
 func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
@@ -32,10 +36,13 @@ func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
 	return &Tidy{
 		Sorter:  sorter,
 		Fs:      fsys,
-		sortDir: wd,
+		SortDir: wd,
+		logger:  logger.Get(),
 	}, nil
 }
 
+// ChangeSortDir checks if the argument provided as a string is a directory, if it
+// is, then it changes the current working directory to the provided string.
 func (t *Tidy) ChangeSortDir(path string) error {
 	// cleanPath := filepath.Clean(path)
 	info, err := t.Fs.Stat(path)
@@ -44,7 +51,7 @@ func (t *Tidy) ChangeSortDir(path string) error {
 	}
 
 	if info.IsDir() {
-		t.sortDir = path
+		t.SortDir = path
 		err := os.Chdir(path)
 		if err != nil {
 			return err
@@ -74,13 +81,21 @@ func (t *Tidy) Sort() error {
 	return nil
 }
 
+func (t *Tidy) Undo() error {
+	err := t.Sorter.undo(t.Fs)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Sorter is an interface which allows different types of sorting. It requires a
 // a CreateScaffolding() method which creates the directory structure for files to
 // be sorted in, and a Sort() method which sorts a given directory
 type Sorter interface {
 	createScaffolding(fsys afero.Fs) error
 	sort(fsys afero.Fs) error
-	// undo() error
+	undo(fsys afero.Fs) error
 }
 
 type FiletypeLookup map[string]*FiletypeSortingFolder
@@ -96,6 +111,8 @@ type FiletypeSorter struct {
 	// values, this allows us to determine where a file should be sorted in constant
 	// time.
 	Lookup FiletypeLookup
+
+	logger zerolog.Logger
 }
 
 // FiletypeSortingFolder represents an individual directory in which files will be sorted
@@ -152,7 +169,7 @@ func NewFiletypeSorter() *FiletypeSorter {
 		},
 	}
 
-	ftSorter := &FiletypeSorter{Dirs: dirs}
+	ftSorter := &FiletypeSorter{Dirs: dirs, logger: logger.Get()}
 	ftSorter.Lookup = ftSorter.newLookup()
 
 	return ftSorter
@@ -177,14 +194,17 @@ func (fts *FiletypeSorter) newLookup() FiletypeLookup {
 	return lookup
 }
 
-// DirsSlice returns a slice containing the names of all FiletypeSortingFolders in
-// the Dirs slice.
+// dirsSlice returns a slice containing the names of all FiletypeSortingFolders in
+// the Dirs slice. The slice returned is sorted lexicographicaly.
 func (fts *FiletypeSorter) dirsSlice() []string {
 	dirs := make([]string, 0, len(fts.Dirs))
 
 	for _, v := range fts.Dirs {
 		dirs = append(dirs, v.Name)
 	}
+	sort.Slice(dirs, func(i, j int) bool {
+		return dirs[i] < dirs[j]
+	})
 	return dirs
 }
 
@@ -256,6 +276,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 			if err != nil {
 				return err
 			}
+			fts.logger.Info().Str("Moved", f.Name()).Str("New filepath", dest).Msg("Sorted file to new directory.")
 			return filepath.SkipDir
 		}
 		ext := getExtension(f.Name())
@@ -267,6 +288,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 			if err != nil {
 				return err
 			}
+			fts.logger.Info().Str("Moved", f.Name()).Str("New filepath", dest).Msg("Sorted file to new directory.")
 			return nil
 		}
 		dest := filepath.Join(val.Name, f.Name())
@@ -274,10 +296,52 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		if err != nil {
 			return err
 		}
+		fts.logger.Info().Str("Moved", f.Name()).Str("New filepath", dest).Msg("Sorted file to new directory.")
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
+	dirsSlice := fts.dirsSlice()
+	dirsInCwd, err := dirsInCwd(fsys)
+	fmt.Println(dirsInCwd)
+	if err != nil {
+		return err
+	}
+	if cmp.Equal(dirsSlice, dirsInCwd) {
+
+		for _, v := range dirsInCwd {
+
+			err := afero.Walk(fsys, v, func(path string, f fs.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if v == path {
+					return nil
+				}
+
+				err = moveToParentDir(fsys, path)
+				if err != nil {
+					return err
+				}
+				if f.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			err = os.Remove(v)
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 	return nil
 }

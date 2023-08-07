@@ -17,6 +17,9 @@ var once sync.Once
 
 var log zerolog.Logger
 
+// Get a logger. We use a singleton instance of the logger. The initialization
+// only happens on the first call to Get, afterwards you get a references to the
+// logger.
 func Get() zerolog.Logger {
 	once.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
@@ -35,7 +38,7 @@ func Get() zerolog.Logger {
 
 		if os.Getenv("APP_ENV") != "development" {
 			fileLogger := &lumberjack.Logger{
-				Filename:   "tidy-up.log",
+				Filename:   "tidy-up.log", // TODO: Figure out better location to keep log files.
 				MaxSize:    5,
 				MaxBackups: 10,
 				MaxAge:     14,
