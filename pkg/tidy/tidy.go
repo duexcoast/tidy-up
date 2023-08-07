@@ -35,6 +35,11 @@ type Tidy struct {
 	logger zerolog.Logger
 }
 
+// NewTidy initializes a Tidy struct. It accepts a Sorter and afero.Fs (for testing
+// purposes) as arguments. We are returned an instance of a Tidy struct with the
+// SortDir field set to the current working directory.
+//
+// When not testing, we should pass afero.NewOsFs as the filesystem.
 func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -72,7 +77,7 @@ func (t *Tidy) ChangeSortDir(path string) error {
 
 }
 
-// Method CreateScaffolding() creates the given scaffolding for the directory
+// CreateScaffolding() creates the given scaffolding for the directory
 // based upon the Sorter type.
 func (t *Tidy) CreateScaffolding() error {
 	if err := t.Sorter.createScaffolding(t.Fs); err != nil {
@@ -81,6 +86,9 @@ func (t *Tidy) CreateScaffolding() error {
 	return nil
 }
 
+// Sort will create the necessary scaffolding, then sort the directory specified by
+// t.SortDir.Sort is a wrapper around the t.Sorter.sort() method, so changing the
+// t.Sorter will determine how the directory is sorted.
 func (t *Tidy) Sort() error {
 	if err := t.CreateScaffolding(); err != nil {
 		return err
@@ -93,6 +101,9 @@ func (t *Tidy) Sort() error {
 	return nil
 }
 
+// Undo() will move the files sorted in the scaffolding created by a call to Sort()
+// into their parent directory. It will then delete the scaffolding, effectively
+// bringing the directory back to it's previous state before a call to Sort()
 func (t *Tidy) Undo() error {
 	err := t.Sorter.undo(t.Fs)
 	if err != nil {
@@ -320,7 +331,6 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 	return nil
 }
 
-// undo provides the undo method for the FiletypeSorter. It will look at the
 func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
 	// dirsSlice is the names of the directories that make up the sorting categories
 	// for the filetype sort.
@@ -373,6 +383,11 @@ func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
 	}
 	return nil
 }
+
+// logFiletypeSort is a helper function for logging the movement of files. The
+// knownExtension argument indicates whether we were able to identify the file
+// based on its extension and thus sort it correctly. The sort arg indicates whether
+// we are performing a sort or unsort operation.
 func (fts *FiletypeSorter) logFiletypeSort(filename, newPath string, isDir, knownExtension, sort bool) {
 	if sort {
 		fts.logger.Info().Str("Moved", filename).Str("New Path", newPath).Bool("Is Dir", isDir).Bool("Known Extension", knownExtension).Msg("Sorted file to new directory.")
