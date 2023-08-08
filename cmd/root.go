@@ -11,7 +11,6 @@ import (
 
 type rootCmdOptions struct {
 	toggle bool
-	// verbose bool
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -43,14 +42,6 @@ func Execute() {
 func init() {
 
 	opts := &rootCmdOptions{}
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tidy-up.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
 	rootCmd.Flags().BoolVarP(&opts.toggle, "toggle", "t", false, "Help message for toggle")
 	// rootCmd.PersistentFlags().BoolVarP(&opts.verbose, "verbose", "v", false, "verbose output")
 }

@@ -32,6 +32,8 @@ type Tidy struct {
 	// The directory which the Sort() and Unsort() methods will execute upon.
 	SortDir string
 
+	Flags *TidyFlags
+
 	logger zerolog.Logger
 }
 
@@ -40,7 +42,7 @@ type Tidy struct {
 // SortDir field set to the current working directory.
 //
 // When not testing, we should pass afero.NewOsFs as the filesystem.
-func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
+func NewTidy(sorter Sorter, flags *TidyFlags, fsys afero.Fs) (*Tidy, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		l := logger.Get()
@@ -51,6 +53,7 @@ func NewTidy(sorter Sorter, fsys afero.Fs) (*Tidy, error) {
 		Sorter:  sorter,
 		Fs:      fsys,
 		SortDir: wd,
+		Flags:   flags,
 		logger:  logger.Get(),
 	}, nil
 }
@@ -298,7 +301,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 
 			err := fsys.Rename(f.Name(), dest)
 			if err != nil {
-				return &SortingError{Filename: f.Name(), AbsPath: absDest, Err: err}
+				return &SortingError{Filename: f.Name(), AbsPath: absDest, Sort: true, Err: err}
 			}
 			fts.logFiletypeSort(f.Name(), absDest, true, true, true)
 			return filepath.SkipDir
@@ -311,7 +314,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 			absDest, _ := filepath.Abs(dest)
 			err := fsys.Rename(f.Name(), dest)
 			if err != nil {
-				return &SortingError{Filename: f.Name(), AbsPath: absDest, Err: err}
+				return &SortingError{Filename: f.Name(), AbsPath: absDest, Sort: true, Err: err}
 			}
 			fts.logFiletypeSort(f.Name(), absDest, false, false, true)
 			return nil
@@ -320,7 +323,7 @@ func (fts *FiletypeSorter) sort(fsys afero.Fs) error {
 		absDest, _ := filepath.Abs(dest)
 		err = fsys.Rename(f.Name(), dest)
 		if err != nil {
-			return &SortingError{Filename: f.Name(), AbsPath: absDest, Err: err}
+			return &SortingError{Filename: f.Name(), AbsPath: absDest, Sort: true, Err: err}
 		}
 		fts.logFiletypeSort(f.Name(), absDest, false, true, true)
 		return nil
@@ -353,6 +356,7 @@ func (fts *FiletypeSorter) undo(fsys afero.Fs) error {
 				if err != nil {
 					return err
 				}
+				// Ignore the root. We don't want to move this
 				if v == path {
 					return nil
 				}

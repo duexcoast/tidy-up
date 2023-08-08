@@ -22,6 +22,10 @@ func getExtension(filename string) string {
 
 // dirsInCwd walks the current directory and returns a slice containing the name of
 // every directory found. The returned slice will be lexicographically sorted.
+// TODO: I can refactor this and many other pieces of code in this package using
+// the os.ReadDir function, which returns all directory entries sorted by filename
+// This would greatly simplify the code - the Walk function is needlessly complex
+// for its simple purpose here.
 func dirsInCwd(fsys afero.Fs) ([]string, error) {
 	dirsFound := make([]string, 0)
 
@@ -62,7 +66,7 @@ func moveToParentDir(fsys afero.Fs, path string) (newPath string, err error) {
 
 	err = fsys.Rename(path, dest)
 	if err != nil {
-		return "", err
+		return "", &SortingError{Filename: fileName, AbsPath: dest, Sort: false, Err: err}
 	}
 	return dest, nil
 }

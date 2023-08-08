@@ -52,7 +52,8 @@ func newSortCommand(opts *sortCmdOptions) *cobra.Command {
 }
 
 func runSort(opts *sortCmdOptions, args []string) {
-	Tidy, err := tidy.NewTidy(tidy.NewFiletypeSorter(), afero.NewOsFs())
+	flags := &tidy.TidyFlags{Verbose: opts.verbose}
+	Tidy, err := tidy.NewTidy(tidy.NewFiletypeSorter(), flags, afero.NewOsFs())
 	if err != nil {
 		fmt.Printf("error: %s\n", err)
 	}

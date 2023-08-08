@@ -5,6 +5,7 @@ import "fmt"
 type SortingError struct {
 	Filename string
 	AbsPath  string
+	Sort     bool // indicates whether the error occured in a sort or unsort operation
 	Err      error
 }
 
