@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
+Copyright © 2023 DUEX COAST duexcoast@gmail.com
 */
 package cmd
 

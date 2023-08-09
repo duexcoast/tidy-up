@@ -73,7 +73,7 @@ func TestFiletypeSort(t *testing.T) {
 		t.Run(strconv.Itoa(tc.testID), func(t *testing.T) {
 			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
-			Tidy, err := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
+			Tidy, err := NewTidy(NewFiletypeSorter(), mockTidyFlags(), afero.NewMemMapFs())
 			if err != nil {
 				t.Fatalf("\t%s\tTest %d:\tShould be able to initialize Tidy struct, error: %v", failed, tc.testID, err)
 			}
@@ -171,7 +171,7 @@ func TestCreateScaffolding(t *testing.T) {
 		t.Run(strconv.Itoa(tc.testID), func(t *testing.T) {
 			t.Logf("\tTest %d:\t%s", tc.testID, name)
 
-			Tidy, err := NewTidy(NewFiletypeSorter(), afero.NewMemMapFs())
+			Tidy, err := NewTidy(NewFiletypeSorter(), mockTidyFlags(), afero.NewMemMapFs())
 			if err != nil {
 				t.Fatalf("\t%s\tTest %d:\tShould be able to initialize Tidy struct, error: %v", failed, tc.testID, err)
 			}
@@ -279,4 +279,10 @@ func mapOfDirs(t *testing.T, fsys afero.Fs) (map[string][]string, error) {
 	}
 
 	return dirMap, nil
+}
+
+func mockTidyFlags() *TidyFlags {
+	return &TidyFlags{
+		Verbose: false,
+	}
 }
