@@ -39,7 +39,7 @@ func Get() zerolog.Logger {
 
 		if os.Getenv("APP_ENV") != "development" {
 			fileLogger := &lumberjack.Logger{
-				Filename:   "~/duexcoast/logs/tidy-up.log", // TODO: Figure out better location to keep log files.
+				Filename:   "/logs/tidy-up.log", // TODO: Figure out better location to keep log files.
 				MaxSize:    5,
 				MaxBackups: 10,
 				MaxAge:     13,
