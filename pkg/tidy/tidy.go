@@ -101,6 +101,22 @@ func (t *Tidy) Sort() error {
 	if err := t.CreateScaffolding(); err != nil {
 		return err
 	}
+
+	// Check if --watch flag is set, if it is then create a watcher on t.SortDir and
+	// sort every time a new file is created in t.SortDir
+	if t.watch {
+		// TODO: I haven't thought through the implications for error handling when calling
+		// the sort function as a callback like this.
+		if err := fileWatcher(t.SortDir, func() error {
+			if err := t.Sorter.sort(t.Fs); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
 	// TODO: Where should I check for errors.Is(SortingError), and how should I
 	// log the error?
 	if err := t.Sorter.sort(t.Fs); err != nil {

@@ -3,6 +3,7 @@ module github.com/duexcoast/tidy-up
 go 1.19
 
 require (
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.29.1
