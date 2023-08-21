@@ -16,6 +16,7 @@ import (
 type sortCmdOptions struct {
 	sortType string
 	verbose  bool
+	watch    bool
 	envFiles []string
 }
 
@@ -27,6 +28,7 @@ func init() {
 	rootCmd.AddCommand(cmd)
 
 	cmd.Flags().StringVarP(&opts.sortType, "type", "t", "filetypeSorter", "The sort type to be used")
+	cmd.Flags().BoolVarP(&opts.watch, "watch", "w", false, "Watch the filesystem and continuously sort as new files are created.")
 	cmd.PersistentFlags().BoolVarP(&opts.verbose, "verbose", "v", false, "verbose output")
 
 	cmd.PersistentFlags().StringSliceVar(&opts.envFiles, "env-file", []string{}, "Env files to parse environment variables (looks for .env by default).")

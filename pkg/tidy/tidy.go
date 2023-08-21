@@ -35,6 +35,10 @@ type Tidy struct {
 	Flags *TidyFlags
 
 	logger zerolog.Logger
+
+	// Watch determines whether this is a one-off sort, or we want to continue to
+	// monitor the SortDir for ongoing changes and continuously sort.
+	watch bool
 }
 
 // NewTidy initializes a Tidy struct. It accepts a Sorter and afero.Fs (for testing
@@ -55,6 +59,7 @@ func NewTidy(sorter Sorter, flags *TidyFlags, fsys afero.Fs) (*Tidy, error) {
 		SortDir: wd,
 		Flags:   flags,
 		logger:  logger.Get(),
+		watch:   flags.watch,
 	}, nil
 }
 
