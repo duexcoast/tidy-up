@@ -3,6 +3,7 @@ package logger
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -37,9 +38,18 @@ func Get() zerolog.Logger {
 			FieldsExclude: []string{"git_revision", "go_version"},
 		}
 
+		// set log files to be saved in ~/.cache/tidy-up/tidy-up.log
+		// TODO: make this cross-platform. Determine where logs should be
+		// kept on other systems.
+		userHomeDir, err := os.UserHomeDir()
+		if err != nil {
+			userHomeDir = "/" // not a great solution
+		}
+		logDir := filepath.Join(userHomeDir, ".cache", "tidy-up", "tidy-up.log")
+
 		if os.Getenv("APP_ENV") != "development" {
 			fileLogger := &lumberjack.Logger{
-				Filename:   "/logs/tidy-up.log", // TODO: Figure out better location to keep log files.
+				Filename:   logDir,
 				MaxSize:    5,
 				MaxBackups: 10,
 				MaxAge:     13,
